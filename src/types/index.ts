@@ -96,17 +96,22 @@ export interface Product {
   active: boolean;
 }
 
+export type KitComplexity = 'simplu' | 'standard' | 'premium';
+
 export interface Kit {
   id: string;
   name: string;
   category: string;
   purpose: string;
   audience: string;
+  complexity: KitComplexity;
   suggested_industries_json: string[];
   components_json: KitComponent[];
   internal_operations_json: string[];
   supporting_caen_codes_json: string[];
   eligibility_explanation: string;
+  is_alternative: boolean;
+  alternative_for: string[];
   active: boolean;
 }
 

@@ -1,7 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Building2, FileText, LogOut } from 'lucide-react';
+import { LayoutDashboard, Building2, FileText, LogOut, Package } from 'lucide-react';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -10,6 +10,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/new', icon: FileText, label: 'Nouă' },
+    { to: '/kits', icon: Package, label: 'Kit Generator' },
   ];
 
   return (
