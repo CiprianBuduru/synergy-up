@@ -127,9 +127,19 @@
 @media print {
   .no-print { display: none !important; }
   .print-only { display: block !important; }
-  body { background: white !important; }
+  body { background: white !important; margin: 0 !important; padding: 0 !important; }
   .slide-page {
     page-break-after: always;
     page-break-inside: avoid;
+    margin: 0 !important;
+    padding: 0 !important;
   }
+  .slide-page:last-child {
+    page-break-after: auto;
+  }
+}
+
+@page {
+  size: landscape;
+  margin: 0;
 }
