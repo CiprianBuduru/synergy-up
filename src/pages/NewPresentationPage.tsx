@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, MapPin, User, Plus, Users } from 'lucide-react';
 import { analyzeBrief, getRecommendedProducts, getRecommendedKits } from '@/lib/eligibility-engine';
+import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
 import { generatePresentation } from '@/lib/presentation-generator';
 import { presentationTemplates } from '@/lib/presentation-templates';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
@@ -63,7 +64,7 @@ export default function NewPresentationPage() {
       target_audience: analysis.audience,
       department_detected: analysis.department,
       tone_recommended: analysis.tone,
-      eligibility_status: analysis.eligibility,
+      eligibility_status: analysis.eligibility.verdict,
       created_at: new Date().toISOString(),
     };
     data.addBrief(brief);
@@ -315,18 +316,25 @@ export default function NewPresentationPage() {
                   </div>
                   
                   {briefAnalysis && (
-                    <div className="space-y-4 rounded-xl border bg-card p-4">
-                      <div className="flex items-center gap-3">
-                        <EligibilityBadge status={briefAnalysis.eligibility} size="lg" />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 rounded-xl border bg-card p-4">
                         <MiniInfo label="Scop detectat" value={briefAnalysis.purpose} />
                         <MiniInfo label="Departament" value={briefAnalysis.department} />
                         <MiniInfo label="Audiență" value={briefAnalysis.audience} />
                         <MiniInfo label="Ton recomandat" value={briefAnalysis.tone} />
                       </div>
+                      {briefAnalysis.detected_intents.length > 0 && (
+                        <div className="rounded-xl border bg-card p-4">
+                          <p className="mb-1.5 text-xs font-medium text-muted-foreground">Intenții detectate</p>
+                          <div className="flex flex-wrap gap-1">
+                            {briefAnalysis.detected_intents.map((intent, i) => (
+                              <Badge key={i} variant="secondary" className="text-xs">{intent}</Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       {briefAnalysis.products.length > 0 && (
-                        <div>
+                        <div className="rounded-xl border bg-card p-4">
                           <p className="mb-1.5 text-xs font-medium text-muted-foreground">Produse detectate</p>
                           <div className="flex flex-wrap gap-1">
                             {briefAnalysis.products.map((p, i) => (
@@ -335,6 +343,7 @@ export default function NewPresentationPage() {
                           </div>
                         </div>
                       )}
+                      <EligibilityReasoningPanel result={briefAnalysis.eligibility} title="Verdict eligibilitate brief" />
                     </div>
                   )}
 
@@ -383,7 +392,7 @@ export default function NewPresentationPage() {
                             <p className="text-xs text-muted-foreground">{company.contact_name} • {company.contact_department} • Ton: {tone}</p>
                           </div>
                         </div>
-                        {briefAnalysis && <EligibilityBadge status={briefAnalysis.eligibility} />}
+                        {briefAnalysis && <EligibilityBadge status={briefAnalysis.eligibility.verdict} />}
                       </div>
                       {enrichment && (
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
