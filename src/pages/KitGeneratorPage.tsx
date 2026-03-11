@@ -42,7 +42,7 @@ export default function KitGeneratorPage() {
       department: company.contact_department,
       briefText,
       purpose: briefText || 'General corporate',
-      complexity: complexity || undefined,
+      complexity: (complexity && complexity !== 'all' ? complexity : undefined) as KitComplexity | undefined,
     });
     setRecommendations(results);
     setHasGenerated(true);
