@@ -1,4 +1,5 @@
-import type { Company, CompanyEnrichment, Product, Kit, Operation, Alternative, Presentation, Slide, Brief, CalculationSnapshot } from '@/types';
+import type { Company, CompanyEnrichment, Kit, Operation, Alternative, Presentation, Slide, Brief, CalculationSnapshot } from '@/types';
+export { productsLibrary as seedProducts } from './products-seed';
 
 export const seedCompanies: Company[] = [
   { id: '1', company_name: 'TechVision Romania', legal_name: 'TechVision Solutions SRL', website: 'techvision.ro', industry: 'IT & Software', company_size: '200-500', location: 'București', description: 'Companie de dezvoltare software și soluții IT', contact_name: 'Andrei Popescu', contact_role: 'HR Director', contact_department: 'HR', email: 'andrei@techvision.ro', phone: '+40 721 000 001', notes: '', created_at: '2024-01-15', updated_at: '2024-03-01' },
