@@ -63,7 +63,7 @@ export default function NewPresentationPage() {
       target_audience: analysis.audience,
       department_detected: analysis.department,
       tone_recommended: analysis.tone,
-      eligibility_status: analysis.eligibility,
+      eligibility_status: analysis.eligibility.verdict,
       created_at: new Date().toISOString(),
     };
     data.addBrief(brief);
