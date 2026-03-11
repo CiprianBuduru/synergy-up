@@ -86,14 +86,19 @@ export interface Operation {
 export interface Product {
   id: string;
   name: string;
+  slug: string;
   category: string;
   description: string;
-  suitable_for_json: string[];
   base_product_type: string;
   internal_operations_json: string[];
   supporting_caen_codes_json: string[];
   eligible_logic: string;
+  suggested_industries_json: string[];
+  suitable_departments_json: string[];
+  suitable_for_json: string[];
+  usable_in_kits: boolean;
   active: boolean;
+  notes: string;
 }
 
 export type KitComplexity = 'simplu' | 'standard' | 'premium';
