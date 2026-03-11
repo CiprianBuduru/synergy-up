@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, MapPin, User, Plus, Users } from 'lucide-react';
 import { analyzeBrief, getRecommendedProducts, getRecommendedKits } from '@/lib/eligibility-engine';
+import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
 import { generatePresentation } from '@/lib/presentation-generator';
 import { presentationTemplates } from '@/lib/presentation-templates';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
