@@ -27,7 +27,7 @@ export default function KitGeneratorPage() {
   const navigate = useNavigate();
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [briefText, setBriefText] = useState('');
-  const [complexity, setComplexity] = useState<KitComplexity | ''>('');
+  const [complexity, setComplexity] = useState<string>('');
   const [recommendations, setRecommendations] = useState<KitRecommendation[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);
   const [catalogFilter, setCatalogFilter] = useState('all');
