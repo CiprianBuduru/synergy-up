@@ -317,7 +317,7 @@ export default function NewPresentationPage() {
                   {briefAnalysis && (
                     <div className="space-y-4 rounded-xl border bg-card p-4">
                       <div className="flex items-center gap-3">
-                        <EligibilityBadge status={briefAnalysis.eligibility} size="lg" />
+                        <EligibilityBadge status={briefAnalysis.eligibility.verdict} size="lg" />
                       </div>
                       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <MiniInfo label="Scop detectat" value={briefAnalysis.purpose} />
