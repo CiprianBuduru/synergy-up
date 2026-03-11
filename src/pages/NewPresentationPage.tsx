@@ -383,7 +383,7 @@ export default function NewPresentationPage() {
                             <p className="text-xs text-muted-foreground">{company.contact_name} • {company.contact_department} • Ton: {tone}</p>
                           </div>
                         </div>
-                        {briefAnalysis && <EligibilityBadge status={briefAnalysis.eligibility} />}
+                        {briefAnalysis && <EligibilityBadge status={briefAnalysis.eligibility.verdict} />}
                       </div>
                       {enrichment && (
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
