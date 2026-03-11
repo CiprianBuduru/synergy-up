@@ -14,6 +14,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Search, LayoutGrid, TableIcon, Plus, Copy, Pencil, Package, ChevronDown, Filter, X } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { motion, AnimatePresence } from 'framer-motion';
+import { checkEligibility } from '@/lib/eligibility-engine';
+import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
 import type { Product } from '@/types';
 
 const ALL_CATEGORIES = [
