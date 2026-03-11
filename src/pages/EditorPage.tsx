@@ -99,14 +99,14 @@ export default function EditorPage() {
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
-  if (!presentation) {
-    return <AppLayout><p className="text-muted-foreground">Prezentarea nu a fost găsită.</p></AppLayout>;
-  }
-
   const updateSlide = useCallback((slideId: string, updates: Partial<Slide>) => {
     setEditingSlides(prev => prev.map(s => s.id === slideId ? { ...s, ...updates } : s));
     setSaved(false);
   }, []);
+
+  if (!presentation) {
+    return <AppLayout><p className="text-muted-foreground">Prezentarea nu a fost găsită.</p></AppLayout>;
+  }
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
