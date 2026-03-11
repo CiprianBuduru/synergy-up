@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { Company, CompanyEnrichment, Brief, CalculationSnapshot, Presentation, Slide } from '@/types';
-import { seedCompanies, seedEnrichments, seedPresentations, seedSlides, seedBriefs, seedCalculations } from '@/data/seed';
+import type { Company, CompanyEnrichment, Brief, CalculationSnapshot, Presentation, Slide, Product } from '@/types';
+import { seedCompanies, seedEnrichments, seedPresentations, seedSlides, seedBriefs, seedCalculations, seedProducts } from '@/data/seed';
 
 interface DataContextType {
   companies: Company[];
@@ -9,6 +9,7 @@ interface DataContextType {
   slides: Slide[];
   briefs: Brief[];
   calculations: CalculationSnapshot[];
+  products: Product[];
   addCompany: (c: Company) => void;
   updateCompany: (c: Company) => void;
   addPresentation: (p: Presentation) => void;
@@ -17,6 +18,8 @@ interface DataContextType {
   addBrief: (b: Brief) => void;
   addCalculation: (c: CalculationSnapshot) => void;
   addEnrichment: (e: CompanyEnrichment) => void;
+  addProduct: (p: Product) => void;
+  updateProduct: (p: Product) => void;
   getCompany: (id: string) => Company | undefined;
   getEnrichment: (companyId: string) => CompanyEnrichment | undefined;
   getPresentation: (id: string) => Presentation | undefined;
@@ -32,6 +35,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [slides, setSlidesState] = useState<Slide[]>(seedSlides);
   const [briefs, setBriefs] = useState<Brief[]>(seedBriefs);
   const [calculations, setCalculations] = useState<CalculationSnapshot[]>(seedCalculations);
+  const [products, setProducts] = useState<Product[]>(seedProducts);
 
   const addCompany = useCallback((c: Company) => setCompanies(prev => [...prev, c]), []);
   const updateCompany = useCallback((c: Company) => setCompanies(prev => prev.map(x => x.id === c.id ? c : x)), []);
@@ -46,6 +50,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addBrief = useCallback((b: Brief) => setBriefs(prev => [...prev, b]), []);
   const addCalculation = useCallback((c: CalculationSnapshot) => setCalculations(prev => [...prev, c]), []);
   const addEnrichment = useCallback((e: CompanyEnrichment) => setEnrichments(prev => [...prev, e]), []);
+  const addProduct = useCallback((p: Product) => setProducts(prev => [...prev, p]), []);
+  const updateProduct = useCallback((p: Product) => setProducts(prev => prev.map(x => x.id === p.id ? p : x)), []);
 
   const getCompany = useCallback((id: string) => companies.find(c => c.id === id), [companies]);
   const getEnrichment = useCallback((companyId: string) => enrichments.find(e => e.company_id === companyId), [enrichments]);
@@ -54,9 +60,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <DataContext.Provider value={{
-      companies, enrichments, presentations, slides, briefs, calculations,
+      companies, enrichments, presentations, slides, briefs, calculations, products,
       addCompany, updateCompany, addPresentation, updatePresentation, setSlides,
-      addBrief, addCalculation, addEnrichment,
+      addBrief, addCalculation, addEnrichment, addProduct, updateProduct,
       getCompany, getEnrichment, getPresentation, getPresentationSlides,
     }}>
       {children}
