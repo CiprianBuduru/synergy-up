@@ -389,18 +389,11 @@ export default function ProductsPage() {
             </div>
 
             {/* Eligibility Preview */}
-            {editingProduct.eligible_logic && (
-              <Card className="border-accent/30 bg-accent/5">
-                <CardContent className="p-3">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-accent">Preview explicație eligibilitate</p>
-                  <p className="text-xs text-foreground">{editingProduct.eligible_logic}</p>
-                  {editingProduct.internal_operations_json.length > 0 && (
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      Operațiuni: {editingProduct.internal_operations_json.join(', ')} · CAEN: {editingProduct.supporting_caen_codes_json.join(', ')}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+            {editingProduct.name && (
+              <EligibilityReasoningPanel 
+                result={checkEligibility(editingProduct.name)} 
+                title="Preview eligibilitate produs" 
+              />
             )}
 
             {/* Industries & Departments */}
