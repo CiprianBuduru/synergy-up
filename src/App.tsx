@@ -11,6 +11,7 @@ import CompanyPage from "./pages/CompanyPage";
 import NewPresentationPage from "./pages/NewPresentationPage";
 import EditorPage from "./pages/EditorPage";
 import PreviewPage from "./pages/PreviewPage";
+import KitGeneratorPage from "./pages/KitGeneratorPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
