@@ -8,6 +8,10 @@ export type FollowUpStatus =
   | 'presentation_sent'
   | 'waiting_response'
   | 'interested'
+  | 'documents_sent'
+  | 'contract_in_progress'
+  | 'contract_signed'
+  | 'active_client'
   | 'negotiation'
   | 'won'
   | 'lost';
@@ -17,8 +21,12 @@ export const FOLLOW_UP_STATUS_CONFIG: Record<FollowUpStatus, { label: string; co
   presentation_sent: { label: 'Prezentare trimisă', color: 'bg-blue-50 text-blue-700 border border-blue-200', icon: '📤' },
   waiting_response: { label: 'Așteptăm răspuns', color: 'bg-amber-50 text-amber-700 border border-amber-200', icon: '⏳' },
   interested: { label: 'Interesat', color: 'bg-emerald-50 text-emerald-700 border border-emerald-200', icon: '✅' },
+  documents_sent: { label: 'Documente trimise', color: 'bg-indigo-50 text-indigo-700 border border-indigo-200', icon: '📄' },
+  contract_in_progress: { label: 'Contract în lucru', color: 'bg-orange-50 text-orange-700 border border-orange-200', icon: '📝' },
+  contract_signed: { label: 'Contract semnat', color: 'bg-teal-50 text-teal-700 border border-teal-200', icon: '✍️' },
+  active_client: { label: 'Client activ', color: 'bg-green-50 text-green-800 border border-green-200', icon: '🏆' },
   negotiation: { label: 'Negociere', color: 'bg-purple-50 text-purple-700 border border-purple-200', icon: '🤝' },
-  won: { label: 'Câștigat', color: 'bg-green-50 text-green-800 border border-green-200', icon: '🏆' },
+  won: { label: 'Câștigat', color: 'bg-green-50 text-green-800 border border-green-200', icon: '🎉' },
   lost: { label: 'Pierdut', color: 'bg-red-50 text-red-700 border border-red-200', icon: '❌' },
 };
 
