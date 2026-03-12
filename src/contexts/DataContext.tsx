@@ -327,6 +327,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
   }, [isDemo, withSaving]);
 
+  const updateEnrichment = useCallback(async (e: CompanyEnrichment) => {
+    if (isDemo) {
+      setEnrichments(prev => prev.map(x => x.id === e.id ? e : x));
+      return;
+    }
+    return withSaving(async () => {
+      const { error } = await db.updateEnrichment(e.id, e);
+      if (error) throw error;
+      setEnrichments(prev => prev.map(x => x.id === e.id ? e : x));
+    });
+  }, [isDemo, withSaving]);
+
   const addProduct = useCallback(async (p: Omit<Product, 'id'>) => {
     if (isDemo) {
       const newP = { ...p, id: crypto.randomUUID() } as Product;
