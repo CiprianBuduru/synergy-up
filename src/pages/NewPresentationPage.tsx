@@ -89,10 +89,8 @@ export default function NewPresentationPage() {
     }
   };
 
-  const handleCreateManualCompany = () => {
-    const newId = `manual-${Date.now()}`;
-    const newCompany: Company = {
-      id: newId,
+  const handleCreateManualCompany = async () => {
+    const newCompany = await data.addCompany({
       company_name: manualForm.company_name,
       legal_name: manualForm.company_name,
       website: '',
@@ -106,12 +104,11 @@ export default function NewPresentationPage() {
       email: manualForm.email,
       phone: '',
       notes: 'Companie creată manual din wizard',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    data.addCompany(newCompany);
-    setSelectedCompanyId(newId);
-    setShowManualEntry(false);
+    });
+    if (newCompany) {
+      setSelectedCompanyId(newCompany.id);
+      setShowManualEntry(false);
+    }
   };
 
   const purpose = briefAnalysis?.purpose || 'General corporate';
