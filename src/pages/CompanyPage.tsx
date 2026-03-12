@@ -103,6 +103,7 @@ export default function CompanyPage() {
           {/* Sidebar */}
           <div className="space-y-6">
             <OpportunityCalculator companyId={company.id} />
+            <SalesCopilotPanel company={company} enrichment={enrichment || null} />
           </div>
         </div>
       </div>
