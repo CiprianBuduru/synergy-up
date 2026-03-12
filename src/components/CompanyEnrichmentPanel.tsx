@@ -366,7 +366,7 @@ export default function CompanyEnrichmentPanel({ company, enrichment, onUpdateEn
 
         {/* Main data fields */}
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date detectate</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Commercial Enrichment</p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <EnrichmentField
               icon={Building2} label="Denumire legală"
