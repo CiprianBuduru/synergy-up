@@ -1,7 +1,7 @@
 // ─── Solution Ranking Engine ────────────────────────────────────────
 // Calculates composite scores for products and kits based on multiple factors.
 
-import type { Product, Kit, EligibilityResult } from '@/types';
+import type { Product, Kit } from '@/types';
 import type { DetectedIntent, IntentType } from './intentDetectionService';
 import type { CompanySignals } from './companySignalsService';
 import { getIndustryProfile } from './industryIntelligenceService';
