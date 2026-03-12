@@ -4,6 +4,7 @@
 import type { Company, CompanyEnrichment, CalculationSnapshot, Brief, Slide, PresentationTone, Product, Kit } from '@/types';
 import type { CompanySignals } from '@/services/companySignalsService';
 import type { DetectedIntent } from '@/services/intentDetectionService';
+import { INTENT_LABELS } from '@/services/intentDetectionService';
 import type { PitchStrategy } from '@/services/pitchStrategyService';
 import type { RankedProduct, RankedKit } from '@/services/solutionRankingService';
 import { buildSlideSequence, type SlideDecision, type DynamicSlideInput } from '@/services/dynamicSlideService';
