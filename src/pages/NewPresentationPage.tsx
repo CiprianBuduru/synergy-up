@@ -184,24 +184,28 @@ export default function NewPresentationPage() {
     if (!parsedEmail) return;
     // Step 1: Auto-create company if extracted and not selected
     if (!selectedCompanyId && parsedEmail.company_name) {
-      const newCompany = await data.addCompany({
-        company_name: parsedEmail.company_name,
-        legal_name: parsedEmail.company_name,
-        website: '',
-        industry: parsedEmail.industry_hint || '',
-        company_size: '',
-        location: parsedEmail.location_hint || '',
-        description: '',
-        contact_name: parsedEmail.contact_name || '',
-        contact_role: parsedEmail.contact_role || '',
-        contact_department: 'General',
-        email: parsedEmail.contact_email || '',
-        phone: parsedEmail.contact_phone || '',
-        notes: 'Companie creată automat din email parser',
-      });
-      if (newCompany) setSelectedCompanyId(newCompany.id);
+      try {
+        const newCompany = await data.addCompany({
+          company_name: parsedEmail.company_name,
+          legal_name: parsedEmail.company_name,
+          website: '',
+          industry: parsedEmail.industry_hint || '',
+          company_size: '',
+          location: parsedEmail.location_hint || '',
+          description: '',
+          contact_name: parsedEmail.contact_name || '',
+          contact_role: parsedEmail.contact_role || '',
+          contact_department: 'General',
+          email: parsedEmail.contact_email || '',
+          phone: parsedEmail.contact_phone || '',
+          notes: 'Companie creată automat din email parser',
+        });
+        if (newCompany) setSelectedCompanyId(newCompany.id);
+      } catch {
+        console.warn('Company creation failed, continuing without company');
+      }
     }
-    setEmailFlowStatus(prev => [...prev, 'brief_created']);
+    setEmailFlowStatus(prev => [...new Set([...prev, 'brief_created'])]);
 
     // Step 2: Set brief text and auto-analyze
     const cleanedText = parsedEmail.cleaned_body;
@@ -210,7 +214,7 @@ export default function NewPresentationPage() {
     // Step 3: Run analysis immediately
     const analysis = analyzeBrief(cleanedText);
     setBriefAnalysis(analysis);
-    setEmailFlowStatus(prev => [...prev, 'rules_matched', 'recommendations_generated']);
+    setEmailFlowStatus(prev => [...new Set([...prev, 'brief_created', 'rules_matched', 'recommendations_generated'])]);
     setTone(analysis.tone as PresentationTone);
 
     // Move to step 2 with analysis already done
