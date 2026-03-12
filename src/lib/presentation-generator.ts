@@ -115,7 +115,6 @@ function buildBriefInterpretationSlide(brief: Brief, intent: DetectedIntent | nu
   if (brief.target_audience) lines.push(`▸ Audiență: ${brief.target_audience}`);
 
   if (intent) {
-    const { INTENT_LABELS } = require('@/services/intentDetectionService');
     lines.push(`▸ Intenție principală: ${INTENT_LABELS[intent.primary_intent] || intent.primary_intent}`);
     if (intent.secondary_intent) {
       lines.push(`▸ Intenție secundară: ${INTENT_LABELS[intent.secondary_intent] || intent.secondary_intent}`);
