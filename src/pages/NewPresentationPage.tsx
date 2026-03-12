@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, Plus, Users, Brain } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, Plus, Users, Brain, Mail } from 'lucide-react';
 import { analyzeBrief } from '@/lib/eligibility-engine';
 import { detectIntent, INTENT_LABELS } from '@/services/intentDetectionService';
 import { analyzeCompanySignals } from '@/services/companySignalsService';
@@ -21,10 +21,12 @@ import { rankProducts, rankKits } from '@/services/solutionRankingService';
 import { generatePitchStrategy } from '@/services/pitchStrategyService';
 import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
 import BriefRulesPanel from '@/components/BriefRulesPanel';
+import ExtractedBriefPanel from '@/components/ExtractedBriefPanel';
 import { generatePresentation } from '@/lib/presentation-generator';
 import { presentationTemplates } from '@/lib/presentation-templates';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
 import EligibilityBadge from '@/components/EligibilityBadge';
+import { parseEmailBrief, type ParsedEmailBrief } from '@/services/emailBriefParserService';
 import type { PresentationTone, Company } from '@/types';
 
 export default function NewPresentationPage() {
@@ -34,6 +36,7 @@ export default function NewPresentationPage() {
   const preselectedCompanyId = searchParams.get('company');
 
   const [step, setStep] = useState(1);
+  const [inputMode, setInputMode] = useState<'company' | 'email'>('company');
   const [selectedCompanyId, setSelectedCompanyId] = useState(preselectedCompanyId || '');
   const [companySearch, setCompanySearch] = useState('');
   const [briefText, setBriefText] = useState('');
@@ -43,6 +46,10 @@ export default function NewPresentationPage() {
   const [generatedPresentationId, setGeneratedPresentationId] = useState<string | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualForm, setManualForm] = useState({ company_name: '', industry: '', company_size: '', location: '', contact_name: '', contact_role: '', contact_department: 'HR', email: '' });
+
+  // Email parser state
+  const [rawEmail, setRawEmail] = useState('');
+  const [parsedEmail, setParsedEmail] = useState<ParsedEmailBrief | null>(null);
 
   const company = data.getCompany(selectedCompanyId);
   const enrichment = data.getEnrichment(selectedCompanyId);
@@ -158,13 +165,45 @@ export default function NewPresentationPage() {
     }
   };
 
+  const handleParseEmail = () => {
+    if (!rawEmail.trim()) return;
+    const result = parseEmailBrief(rawEmail);
+    setParsedEmail(result);
+  };
+
+  const handleUseEmailAsBrief = async () => {
+    if (!parsedEmail) return;
+    // Auto-create company if extracted and not selected
+    if (!selectedCompanyId && parsedEmail.company_name) {
+      const newCompany = await data.addCompany({
+        company_name: parsedEmail.company_name,
+        legal_name: parsedEmail.company_name,
+        website: '',
+        industry: parsedEmail.industry_hint || '',
+        company_size: '',
+        location: parsedEmail.location_hint || '',
+        description: '',
+        contact_name: parsedEmail.contact_name || '',
+        contact_role: parsedEmail.contact_role || '',
+        contact_department: 'General',
+        email: parsedEmail.contact_email || '',
+        phone: parsedEmail.contact_phone || '',
+        notes: 'Companie creată automat din email parser',
+      });
+      if (newCompany) setSelectedCompanyId(newCompany.id);
+    }
+    // Set brief text from cleaned body and move to step 2
+    setBriefText(parsedEmail.cleaned_body);
+    setStep(2);
+  };
+
   return (
     <AppLayout>
       <div className="mx-auto max-w-5xl space-y-6">
         {/* Wizard header */}
         <div className="relative flex items-center justify-between px-4">
           {[
-            { n: 1, label: 'Companie', icon: Building2 },
+            { n: 1, label: inputMode === 'email' ? 'Email' : 'Companie', icon: inputMode === 'email' ? Mail : Building2 },
             { n: 2, label: 'Brief & Analiză', icon: FileText },
             { n: 3, label: 'Insights & Generare', icon: Brain },
           ].map(({ n, label, icon: Icon }) => (
@@ -186,10 +225,32 @@ export default function NewPresentationPage() {
           </div>
         </div>
 
+        {/* Input mode tabs */}
+        {step === 1 && (
+          <div className="flex gap-2 px-4">
+            <Button
+              variant={inputMode === 'company' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => { setInputMode('company'); setParsedEmail(null); }}
+              className={inputMode === 'company' ? 'bg-accent text-accent-foreground' : ''}
+            >
+              <Building2 className="mr-1.5 h-3.5 w-3.5" /> Start from Company
+            </Button>
+            <Button
+              variant={inputMode === 'email' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setInputMode('email')}
+              className={inputMode === 'email' ? 'bg-accent text-accent-foreground' : ''}
+            >
+              <Mail className="mr-1.5 h-3.5 w-3.5" /> Start from Email
+            </Button>
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
-          {/* Step 1: Company */}
-          {step === 1 && (
-            <motion.div key="s1" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
+          {/* Step 1: Company or Email */}
+          {step === 1 && inputMode === 'company' && (
+            <motion.div key="s1-company" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
                 {/* Left: Company search */}
                 <div className="lg:col-span-2">
@@ -281,7 +342,53 @@ export default function NewPresentationPage() {
             </motion.div>
           )}
 
-          {/* Step 2: Brief */}
+          {/* Step 1: Email mode */}
+          {step === 1 && inputMode === 'email' && (
+            <motion.div key="s1-email" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {/* Left: Email input */}
+                <Card className="border-0 shadow-md">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="font-display text-lg flex items-center gap-2">
+                      <Mail className="h-5 w-5 text-primary" /> Lipește emailul primit
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">Copiază conținutul emailului. Sistemul extrage automat compania, contactul, produsele cerute și tipul de cerere.</p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Textarea
+                      placeholder={"Bună ziua,\n\nVă rugăm să ne transmiteți o prezentare și lista cu articolele/serviciile pe care le puteți oferi prin unitatea protejată.\n\nSuntem interesați de:\n- hârtie copiator\n- dosare\n- pixuri\n- materiale de prezentare\n\nCu stimă,\nIon Popescu\nManager Achiziții\nCompania ABC S.R.L.\nion.popescu@abc.ro\n+40 721 123 456"}
+                      value={rawEmail}
+                      onChange={e => setRawEmail(e.target.value)}
+                      rows={14}
+                      className="resize-none font-mono text-sm"
+                    />
+                    <Button
+                      onClick={handleParseEmail}
+                      disabled={!rawEmail.trim()}
+                      className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" /> Parse Email
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Right: Extracted Brief */}
+                <div>
+                  {parsedEmail ? (
+                    <ExtractedBriefPanel parsed={parsedEmail} onUseBrief={handleUseEmailAsBrief} />
+                  ) : (
+                    <Card className="border-dashed border-2 border-muted flex items-center justify-center min-h-[400px]">
+                      <div className="text-center space-y-2 p-8">
+                        <Mail className="h-10 w-10 mx-auto text-muted-foreground/40" />
+                        <p className="text-sm text-muted-foreground">Lipește un email și apasă "Parse Email" pentru a vedea brief-ul extras</p>
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {step === 2 && (
             <motion.div key="s2" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
