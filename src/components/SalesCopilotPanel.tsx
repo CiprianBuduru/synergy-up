@@ -1,15 +1,17 @@
 // ─── Sales Copilot Panel ─────────────────────────────────────────────
-// Full sales intelligence panel for CompanyPage with insights, pitch, email, timeline.
+// Full sales intelligence panel with learning loop for Deal Won/Lost.
 
 import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   TrendingUp, Mail, MessageSquare, Clock, ChevronDown, ChevronUp,
-  Copy, Check, Zap, Target, BarChart3, Send,
+  Copy, Check, Zap, Target, BarChart3, Send, Trophy, XCircle,
 } from 'lucide-react';
 import { useData } from '@/contexts/DataContext';
 import { analyzeCompanySignals, type CompanySignals } from '@/services/companySignalsService';
@@ -24,6 +26,9 @@ import {
   type CompanyFollowUp, type TimelineEvent, type FollowUpStatus,
   FOLLOW_UP_STATUS_CONFIG,
 } from '@/services/followUpService';
+import { recordInteraction } from '@/services/interactionMemoryService';
+import { classifyResponse, RESPONSE_CLASS_CONFIG, type ResponseClass } from '@/services/responseClassificationService';
+import { invalidateBoostCache } from '@/services/recommendationLearningService';
 import type { Company, CompanyEnrichment } from '@/types';
 import { toast } from '@/hooks/use-toast';
 
