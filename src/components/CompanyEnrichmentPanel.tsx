@@ -411,7 +411,7 @@ export default function CompanyEnrichmentPanel({ company, enrichment, onUpdateEn
             >
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">Angajați</span>
+                <span className="text-sm font-medium text-foreground">Număr mediu salariați din bilanț</span>
                 <span className="text-sm font-bold text-foreground">
                   {isOverridden('employee_count_estimate')
                     ? overrides['employee_count_estimate']
