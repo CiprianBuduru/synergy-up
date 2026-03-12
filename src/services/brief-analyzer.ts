@@ -3,6 +3,7 @@
 
 import type { DetectedPurpose, BriefAnalysisV2 } from '@/types';
 import { checkEligibility, productRules, notEligibleRules } from './eligibility';
+import { analyzeBriefWithRules } from './briefRulesEngine';
 
 // ═══════════ PURPOSE DETECTION ═══════════
 const purposePatterns: { purpose: DetectedPurpose; keywords: string[] }[] = [
