@@ -8,7 +8,10 @@ import DataLoadingScreen from '@/components/DataLoadingScreen';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const { isLoading } = useData();
   const location = useLocation();
+
+  if (isLoading) return <DataLoadingScreen />;
 
   const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
