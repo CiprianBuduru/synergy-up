@@ -50,6 +50,7 @@ export default function NewPresentationPage() {
   // Email parser state
   const [rawEmail, setRawEmail] = useState('');
   const [parsedEmail, setParsedEmail] = useState<ParsedEmailBrief | null>(null);
+  const [emailFlowStatus, setEmailFlowStatus] = useState<('parsed' | 'brief_created' | 'rules_matched' | 'recommendations_generated')[]>([]);
 
   const company = data.getCompany(selectedCompanyId);
   const enrichment = data.getEnrichment(selectedCompanyId);
@@ -169,11 +170,19 @@ export default function NewPresentationPage() {
     if (!rawEmail.trim()) return;
     const result = parseEmailBrief(rawEmail);
     setParsedEmail(result);
+    setEmailFlowStatus(['parsed']);
+  };
+
+  const handleReparse = () => {
+    if (!rawEmail.trim()) return;
+    const result = parseEmailBrief(rawEmail);
+    setParsedEmail(result);
+    setEmailFlowStatus(['parsed']);
   };
 
   const handleUseEmailAsBrief = async () => {
     if (!parsedEmail) return;
-    // Auto-create company if extracted and not selected
+    // Step 1: Auto-create company if extracted and not selected
     if (!selectedCompanyId && parsedEmail.company_name) {
       const newCompany = await data.addCompany({
         company_name: parsedEmail.company_name,
@@ -192,8 +201,19 @@ export default function NewPresentationPage() {
       });
       if (newCompany) setSelectedCompanyId(newCompany.id);
     }
-    // Set brief text from cleaned body and move to step 2
-    setBriefText(parsedEmail.cleaned_body);
+    setEmailFlowStatus(prev => [...prev, 'brief_created']);
+
+    // Step 2: Set brief text and auto-analyze
+    const cleanedText = parsedEmail.cleaned_body;
+    setBriefText(cleanedText);
+
+    // Step 3: Run analysis immediately
+    const analysis = analyzeBrief(cleanedText);
+    setBriefAnalysis(analysis);
+    setEmailFlowStatus(prev => [...prev, 'rules_matched', 'recommendations_generated']);
+    setTone(analysis.tone as PresentationTone);
+
+    // Move to step 2 with analysis already done
     setStep(2);
   };
 
@@ -345,6 +365,27 @@ export default function NewPresentationPage() {
           {/* Step 1: Email mode */}
           {step === 1 && inputMode === 'email' && (
             <motion.div key="s1-email" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
+              {/* Analysis state feedback */}
+              {emailFlowStatus.length > 0 && (
+                <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+                  {[
+                    { key: 'parsed', label: 'Email parsed' },
+                    { key: 'brief_created', label: 'Brief created' },
+                    { key: 'rules_matched', label: 'Rules matched' },
+                    { key: 'recommendations_generated', label: 'Recommendations generated' },
+                  ].map(({ key, label }) => (
+                    <div key={key} className="flex items-center gap-1.5 text-xs">
+                      {emailFlowStatus.includes(key as any) ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      ) : (
+                        <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/30" />
+                      )}
+                      <span className={emailFlowStatus.includes(key as any) ? 'text-foreground font-medium' : 'text-muted-foreground'}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {/* Left: Email input */}
                 <Card className="border-0 shadow-md">
@@ -373,9 +414,9 @@ export default function NewPresentationPage() {
                 </Card>
 
                 {/* Right: Extracted Brief */}
-                <div>
+                <div className="max-h-[700px] overflow-y-auto pr-1">
                   {parsedEmail ? (
-                    <ExtractedBriefPanel parsed={parsedEmail} onUseBrief={handleUseEmailAsBrief} />
+                    <ExtractedBriefPanel parsed={parsedEmail} onUseBrief={handleUseEmailAsBrief} onReparse={handleReparse} />
                   ) : (
                     <Card className="border-dashed border-2 border-muted flex items-center justify-center min-h-[400px]">
                       <div className="text-center space-y-2 p-8">
