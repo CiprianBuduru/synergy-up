@@ -72,6 +72,33 @@ export default function DashboardPage() {
           ))}
         </div>
 
+        {/* Sales Insights */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { icon: Target, label: 'Prospecți', value: salesStats.total_prospects, color: 'from-primary/10 to-primary/5', iconColor: 'text-primary' },
+            { icon: Send, label: 'Prezentări trimise', value: salesStats.presentations_sent, color: 'from-info/10 to-info/5', iconColor: 'text-info' },
+            { icon: Users, label: 'Interesați', value: salesStats.interested, color: 'from-emerald-500/10 to-emerald-500/5', iconColor: 'text-emerald-600' },
+            { icon: Zap, label: 'Câștigate', value: salesStats.won, color: 'from-accent/10 to-accent/5', iconColor: 'text-accent' },
+          ].map((stat, i) => (
+            <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.06 }}>
+              <Card className="border-0 shadow-sm overflow-hidden">
+                <div className={`h-0.5 bg-gradient-to-r ${stat.color}`} />
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{stat.label}</p>
+                      <p className="mt-1 font-display text-xl font-bold text-foreground">{stat.value}</p>
+                    </div>
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br ${stat.color}`}>
+                      <stat.icon className={`h-4 w-4 ${stat.iconColor}`} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+
         {/* Actions bar */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative max-w-md flex-1">
