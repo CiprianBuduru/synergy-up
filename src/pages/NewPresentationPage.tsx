@@ -165,13 +165,45 @@ export default function NewPresentationPage() {
     }
   };
 
+  const handleParseEmail = () => {
+    if (!rawEmail.trim()) return;
+    const result = parseEmailBrief(rawEmail);
+    setParsedEmail(result);
+  };
+
+  const handleUseEmailAsBrief = async () => {
+    if (!parsedEmail) return;
+    // Auto-create company if extracted and not selected
+    if (!selectedCompanyId && parsedEmail.company_name) {
+      const newCompany = await data.addCompany({
+        company_name: parsedEmail.company_name,
+        legal_name: parsedEmail.company_name,
+        website: '',
+        industry: parsedEmail.industry_hint || '',
+        company_size: '',
+        location: parsedEmail.location_hint || '',
+        description: '',
+        contact_name: parsedEmail.contact_name || '',
+        contact_role: parsedEmail.contact_role || '',
+        contact_department: 'General',
+        email: parsedEmail.contact_email || '',
+        phone: parsedEmail.contact_phone || '',
+        notes: 'Companie creată automat din email parser',
+      });
+      if (newCompany) setSelectedCompanyId(newCompany.id);
+    }
+    // Set brief text from cleaned body and move to step 2
+    setBriefText(parsedEmail.cleaned_body);
+    setStep(2);
+  };
+
   return (
     <AppLayout>
       <div className="mx-auto max-w-5xl space-y-6">
         {/* Wizard header */}
         <div className="relative flex items-center justify-between px-4">
           {[
-            { n: 1, label: 'Companie', icon: Building2 },
+            { n: 1, label: inputMode === 'email' ? 'Email' : 'Companie', icon: inputMode === 'email' ? Mail : Building2 },
             { n: 2, label: 'Brief & Analiză', icon: FileText },
             { n: 3, label: 'Insights & Generare', icon: Brain },
           ].map(({ n, label, icon: Icon }) => (
@@ -193,10 +225,32 @@ export default function NewPresentationPage() {
           </div>
         </div>
 
+        {/* Input mode tabs */}
+        {step === 1 && (
+          <div className="flex gap-2 px-4">
+            <Button
+              variant={inputMode === 'company' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => { setInputMode('company'); setParsedEmail(null); }}
+              className={inputMode === 'company' ? 'bg-accent text-accent-foreground' : ''}
+            >
+              <Building2 className="mr-1.5 h-3.5 w-3.5" /> Start from Company
+            </Button>
+            <Button
+              variant={inputMode === 'email' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setInputMode('email')}
+              className={inputMode === 'email' ? 'bg-accent text-accent-foreground' : ''}
+            >
+              <Mail className="mr-1.5 h-3.5 w-3.5" /> Start from Email
+            </Button>
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
-          {/* Step 1: Company */}
-          {step === 1 && (
-            <motion.div key="s1" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
+          {/* Step 1: Company or Email */}
+          {step === 1 && inputMode === 'company' && (
+            <motion.div key="s1-company" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
                 {/* Left: Company search */}
                 <div className="lg:col-span-2">
