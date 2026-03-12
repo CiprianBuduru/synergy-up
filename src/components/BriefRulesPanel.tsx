@@ -1,4 +1,4 @@
-import { BookOpen, ArrowRight, ArrowDown, CheckCircle2, XCircle, ArrowRightLeft, Lightbulb, Layers, Target, Crosshair, Search, Package } from 'lucide-react';
+import { BookOpen, ArrowDown, CheckCircle2, XCircle, ArrowRightLeft, Lightbulb, Layers, Target, Crosshair, Search, Package } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { BriefRuleMatch, RuleMatchType } from '@/types/brief-rule';
@@ -69,11 +69,12 @@ export default function BriefRulesPanel({ matches, pitchLines, recommendedKits }
                 </div>
               </div>
 
-              {/* Labeled fields */}
+              {/* Labeled fields — all explicit */}
               <div className="space-y-1.5 pl-6">
                 <LabeledRow label="Requested Item" value={m.rule.requested_item} bold />
+                <LabeledRow label="Matched Rule" value={m.rule.requested_item} />
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground w-32 shrink-0">Rule Type</span>
+                  <span className="text-[10px] text-muted-foreground w-36 shrink-0">Rule Type</span>
                   <Badge variant="outline" className={`text-[10px] px-1.5 py-0 flex items-center gap-1 ${matchCfg.className}`}>
                     <MatchIcon className="h-3 w-3" />
                     {matchCfg.label}
@@ -82,13 +83,17 @@ export default function BriefRulesPanel({ matches, pitchLines, recommendedKits }
                 <LabeledRow label="Confidence" value={`${Math.round(m.confidence * 100)}%`} />
                 {m.matched_keyword && (
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-muted-foreground w-32 shrink-0">Matched Keyword</span>
+                    <span className="text-[10px] text-muted-foreground w-36 shrink-0">Matched Keyword</span>
                     <code className="bg-background/50 px-1.5 py-0.5 rounded text-[10px] text-foreground">{m.matched_keyword}</code>
                   </div>
                 )}
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground w-36 shrink-0">Eligibility Verdict</span>
+                  <span className="text-xs font-semibold text-foreground">{cfg.label}</span>
+                </div>
               </div>
 
-              {/* Transformation flow */}
+              {/* Transformation flow: Requested → Operation → Result */}
               {!m.rule.direct_eligible && (
                 <div className="pl-6 rounded-md border border-border/40 bg-background/30 p-3 space-y-2">
                   <div className="flex items-center gap-2 text-xs">
@@ -119,10 +124,17 @@ export default function BriefRulesPanel({ matches, pitchLines, recommendedKits }
                 </div>
               )}
 
+              {/* Direct eligible result */}
+              {m.rule.direct_eligible && m.rule.eligible_result.length > 0 && (
+                <div className="pl-6">
+                  <LabeledRow label="Eligible Result" value={m.rule.eligible_result.join(', ')} />
+                </div>
+              )}
+
               {/* Supporting CAEN */}
               {m.rule.supporting_caen_codes.length > 0 && (
                 <div className="pl-6 flex items-start gap-2 text-xs flex-wrap">
-                  <span className="text-[10px] text-muted-foreground w-32 shrink-0">Supporting CAEN</span>
+                  <span className="text-[10px] text-muted-foreground w-36 shrink-0">Supporting CAEN</span>
                   <div className="flex flex-wrap gap-1">
                     {m.rule.supporting_caen_codes.map(c => (
                       <Badge key={c} variant="outline" className="font-mono text-[10px] px-1.5 py-0">
@@ -143,7 +155,7 @@ export default function BriefRulesPanel({ matches, pitchLines, recommendedKits }
               {/* Recommended kits */}
               {m.rule.recommended_kits.length > 0 && (
                 <div className="pl-6 flex items-center gap-2 text-xs flex-wrap">
-                  <span className="text-[10px] text-muted-foreground w-32 shrink-0">Recommended Kits</span>
+                  <span className="text-[10px] text-muted-foreground w-36 shrink-0">Recommended Kits</span>
                   {m.rule.recommended_kits.map(k => (
                     <Badge key={k} className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0">{k}</Badge>
                   ))}
@@ -152,14 +164,13 @@ export default function BriefRulesPanel({ matches, pitchLines, recommendedKits }
 
               {/* Pitch line */}
               <div className="pl-6">
-                <span className="text-[10px] text-muted-foreground">Pitch Line</span>
-                <p className="text-xs text-foreground italic mt-0.5">{m.rule.pitch_line}</p>
+                <LabeledRow label="Pitch Line" value={m.rule.pitch_line} italic />
               </div>
             </div>
           );
         })}
 
-        {/* Recommended kits from rules */}
+        {/* Aggregated recommended kits */}
         {recommendedKits && recommendedKits.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -177,7 +188,7 @@ export default function BriefRulesPanel({ matches, pitchLines, recommendedKits }
           </div>
         )}
 
-        {/* Summary pitch */}
+        {/* Summary pitch lines */}
         {pitchLines && pitchLines.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -196,11 +207,11 @@ export default function BriefRulesPanel({ matches, pitchLines, recommendedKits }
   );
 }
 
-function LabeledRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+function LabeledRow({ label, value, bold, italic }: { label: string; value: string; bold?: boolean; italic?: boolean }) {
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span className="text-[10px] text-muted-foreground w-32 shrink-0">{label}</span>
-      <span className={`text-foreground ${bold ? 'font-semibold' : ''}`}>{value}</span>
+      <span className="text-[10px] text-muted-foreground w-36 shrink-0">{label}</span>
+      <span className={`text-foreground ${bold ? 'font-semibold' : ''} ${italic ? 'italic' : ''}`}>{value}</span>
     </div>
   );
 }

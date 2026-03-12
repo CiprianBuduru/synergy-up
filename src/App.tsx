@@ -39,7 +39,6 @@ function AppRoutes() {
       <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
       <Route path="/knowledge" element={<ProtectedRoute><KnowledgePage /></ProtectedRoute>} />
       <Route path="/preview/:id" element={<ProtectedRoute><PreviewPage /></ProtectedRoute>} />
-      <Route path="/preview/:id" element={<ProtectedRoute><PreviewPage /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import {
-  Building2, User, Mail, Phone, MapPin, FileText, AlertCircle, CheckCircle2,
-  XCircle, Package, Layers, Lightbulb, MessageSquare, ArrowRight, Target,
+  Building2, User, Mail, Phone, MapPin, FileText, CheckCircle2,
+  XCircle, Package, Layers, Lightbulb, MessageSquare, Target,
   Crosshair, Search, ArrowRightLeft, ShoppingBag, ArrowDown, RefreshCw,
-  Pencil, Globe, Tag, Receipt, Truck, ShoppingCart, Shield, Heart
+  Pencil, Tag, Receipt, Truck, ShoppingCart, Shield, Heart
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -51,7 +51,7 @@ const VERDICT_LABELS: Record<string, { label: string; description: string; class
   },
 };
 
-function FlagItem({ active, label, icon: Icon }: { active: boolean; label: string; icon: typeof CheckCircle2 }) {
+function FlagItem({ active, label }: { active: boolean; label: string }) {
   return (
     <div className="flex items-center gap-2 text-xs">
       {active ? (
@@ -60,6 +60,36 @@ function FlagItem({ active, label, icon: Icon }: { active: boolean; label: strin
         <XCircle className="h-3.5 w-3.5 text-muted-foreground/30 shrink-0" />
       )}
       <span className={active ? 'text-foreground font-medium' : 'text-muted-foreground/50'}>{label}</span>
+    </div>
+  );
+}
+
+function InfoRow({ label, value, icon, editable }: { label: string; value: string | null; icon?: React.ReactNode; editable?: boolean }) {
+  if (editable) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground flex items-center gap-1 w-28 shrink-0 text-xs">{icon}{label}</span>
+        <Input defaultValue={value || ''} className="h-6 text-xs px-2" />
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-muted-foreground flex items-center gap-1 text-xs">{icon}{label}</span>
+      {value ? (
+        <span className="font-medium text-foreground text-xs">{value}</span>
+      ) : (
+        <span className="text-muted-foreground/50 italic text-xs">nedetectat</span>
+      )}
+    </div>
+  );
+}
+
+function LabeledField({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="text-[10px] text-muted-foreground w-36 shrink-0">{label}</span>
+      <span className={`text-foreground ${bold ? 'font-semibold' : ''}`}>{value}</span>
     </div>
   );
 }
@@ -79,11 +109,11 @@ export default function ExtractedBriefPanel({ parsed, onUseBrief, onReparse }: P
         <div className="flex items-center gap-1.5">
           {onReparse && (
             <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={onReparse}>
-              <RefreshCw className="h-3 w-3" /> Re-parse
+              <RefreshCw className="h-3 w-3" /> Re-parse email
             </Button>
           )}
           <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => setIsEditing(!isEditing)}>
-            <Pencil className="h-3 w-3" /> {isEditing ? 'Închide editare' : 'Editează'}
+            <Pencil className="h-3 w-3" /> {isEditing ? 'Închide editare' : 'Edit extracted brief'}
           </Button>
         </div>
       </div>
@@ -103,32 +133,30 @@ export default function ExtractedBriefPanel({ parsed, onUseBrief, onReparse }: P
 
       {/* Company & Contact — side by side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Company */}
         <Card className="border-border/60">
           <CardHeader className="pb-1.5 pt-3 px-4">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Building2 className="h-3.5 w-3.5" /> Companie
+              <Building2 className="h-3.5 w-3.5" /> Company
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1 px-4 pb-3 text-xs">
-            <InfoRow label="Nume companie" value={parsed.company_name} editable={isEditing} />
-            <InfoRow label="Industrie" value={parsed.industry_hint} icon={<Tag className="h-3 w-3" />} editable={isEditing} />
-            <InfoRow label="Locație" value={parsed.location_hint} icon={<MapPin className="h-3 w-3" />} editable={isEditing} />
+          <CardContent className="space-y-1 px-4 pb-3">
+            <InfoRow label="company_name" value={parsed.company_name} editable={isEditing} />
+            <InfoRow label="industry_hint" value={parsed.industry_hint} icon={<Tag className="h-3 w-3" />} editable={isEditing} />
+            <InfoRow label="location_hint" value={parsed.location_hint} icon={<MapPin className="h-3 w-3" />} editable={isEditing} />
           </CardContent>
         </Card>
 
-        {/* Contact */}
         <Card className="border-border/60">
           <CardHeader className="pb-1.5 pt-3 px-4">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <User className="h-3.5 w-3.5" /> Contact
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1 px-4 pb-3 text-xs">
-            <InfoRow label="Nume contact" value={parsed.contact_name} editable={isEditing} />
-            <InfoRow label="Funcție" value={parsed.contact_role} editable={isEditing} />
-            <InfoRow label="Email" value={parsed.contact_email} icon={<Mail className="h-3 w-3" />} editable={isEditing} />
-            <InfoRow label="Telefon" value={parsed.contact_phone} icon={<Phone className="h-3 w-3" />} editable={isEditing} />
+          <CardContent className="space-y-1 px-4 pb-3">
+            <InfoRow label="contact_name" value={parsed.contact_name} editable={isEditing} />
+            <InfoRow label="contact_role" value={parsed.contact_role} editable={isEditing} />
+            <InfoRow label="contact_email" value={parsed.contact_email} icon={<Mail className="h-3 w-3" />} editable={isEditing} />
+            <InfoRow label="contact_phone" value={parsed.contact_phone} icon={<Phone className="h-3 w-3" />} editable={isEditing} />
           </CardContent>
         </Card>
       </div>
@@ -137,14 +165,14 @@ export default function ExtractedBriefPanel({ parsed, onUseBrief, onReparse }: P
       <Card className="border-border/60">
         <CardHeader className="pb-1.5 pt-3 px-4">
           <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-            <Package className="h-3.5 w-3.5" /> Cerere detectată
+            <Package className="h-3.5 w-3.5" /> Request
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 px-4 pb-4">
           {/* Requested Items (products) */}
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1.5 font-semibold flex items-center gap-1">
-              <ShoppingCart className="h-3 w-3" /> Requested Items — Produse ({parsed.requested_items.length})
+              <ShoppingCart className="h-3 w-3" /> Requested Items ({parsed.requested_items.length})
             </p>
             {parsed.requested_items.length > 0 ? (
               <div className="flex flex-wrap gap-1.5">
@@ -202,11 +230,11 @@ export default function ExtractedBriefPanel({ parsed, onUseBrief, onReparse }: P
         </CardHeader>
         <CardContent className="px-4 pb-3">
           <div className="grid grid-cols-2 gap-y-1.5">
-            <FlagItem active={parsed.asks_for_price} label="Cere preț / ofertă" icon={Receipt} />
-            <FlagItem active={parsed.asks_for_presentation} label="Cere prezentare" icon={FileText} />
-            <FlagItem active={parsed.asks_for_product_list} label="Cere listă produse" icon={Package} />
-            <FlagItem active={parsed.asks_for_delivery_terms} label="Cere termen livrare" icon={Truck} />
-            <FlagItem active={parsed.asks_for_minimum_order} label="Cere comandă minimă" icon={ShoppingCart} />
+            <FlagItem active={parsed.asks_for_price} label="asks_for_price" />
+            <FlagItem active={parsed.asks_for_presentation} label="asks_for_presentation" />
+            <FlagItem active={parsed.asks_for_product_list} label="asks_for_product_list" />
+            <FlagItem active={parsed.asks_for_delivery_terms} label="asks_for_delivery_terms" />
+            <FlagItem active={parsed.asks_for_minimum_order} label="asks_for_minimum_order" />
           </div>
         </CardContent>
       </Card>
@@ -220,8 +248,8 @@ export default function ExtractedBriefPanel({ parsed, onUseBrief, onReparse }: P
         </CardHeader>
         <CardContent className="px-4 pb-3">
           <div className="grid grid-cols-2 gap-y-1.5">
-            <FlagItem active={parsed.mentions_unitate_protejata} label="Menționează Unitate Protejată" icon={Shield} />
-            <FlagItem active={parsed.mentions_fond_handicap} label="Menționează Fond Handicap" icon={Heart} />
+            <FlagItem active={parsed.mentions_unitate_protejata} label="mentions_unitate_protejata" />
+            <FlagItem active={parsed.mentions_fond_handicap} label="mentions_fond_handicap" />
           </div>
         </CardContent>
       </Card>
@@ -252,12 +280,12 @@ export default function ExtractedBriefPanel({ parsed, onUseBrief, onReparse }: P
                     </div>
                   </div>
 
-                  {/* Labeled fields */}
+                  {/* Labeled fields — all explicit */}
                   <div className="space-y-1.5 pl-6">
                     <LabeledField label="Requested Item" value={m.rule.requested_item} bold />
                     <LabeledField label="Matched Rule" value={m.rule.requested_item} />
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-[10px] text-muted-foreground w-24 shrink-0">Rule Type</span>
+                      <span className="text-[10px] text-muted-foreground w-36 shrink-0">Rule Type</span>
                       <Badge variant="outline" className={`text-[10px] px-1.5 py-0 flex items-center gap-1 ${matchCfg.className}`}>
                         <MatchIcon className="h-3 w-3" />
                         {matchCfg.label}
@@ -266,10 +294,14 @@ export default function ExtractedBriefPanel({ parsed, onUseBrief, onReparse }: P
                     <LabeledField label="Confidence" value={`${Math.round(m.confidence * 100)}%`} />
                     {m.matched_keyword && (
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-muted-foreground w-24 shrink-0">Matched Keyword</span>
+                        <span className="text-[10px] text-muted-foreground w-36 shrink-0">Matched Keyword</span>
                         <code className="bg-background/50 px-1.5 py-0.5 rounded text-[10px] text-foreground">{m.matched_keyword}</code>
                       </div>
                     )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-muted-foreground w-36 shrink-0">Eligibility Verdict</span>
+                      <span className="text-xs font-semibold text-foreground">{verdictCfg.label}</span>
+                    </div>
                   </div>
 
                   {/* Transformation flow: Requested → Operation → Result */}
@@ -277,7 +309,7 @@ export default function ExtractedBriefPanel({ parsed, onUseBrief, onReparse }: P
                     <div className="pl-6 rounded-md border border-border/40 bg-background/30 p-2.5 space-y-2">
                       <div className="flex items-center gap-2 text-xs">
                         <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-muted-foreground">Requested:</span>
+                        <span className="text-muted-foreground">Requested Item:</span>
                         <span className="font-medium text-foreground">{m.rule.requested_item}</span>
                       </div>
                       <div className="flex items-center gap-2 pl-5">
@@ -308,6 +340,13 @@ export default function ExtractedBriefPanel({ parsed, onUseBrief, onReparse }: P
                     </div>
                   )}
 
+                  {/* Supporting CAEN */}
+                  {m.rule.supporting_caen_codes.length > 0 && (
+                    <div className="pl-6">
+                      <LabeledField label="Supporting CAEN" value={m.rule.supporting_caen_codes.join(', ')} />
+                    </div>
+                  )}
+
                   {/* Recommended products & kits */}
                   {m.rule.recommended_products.length > 0 && (
                     <div className="pl-6">
@@ -316,17 +355,10 @@ export default function ExtractedBriefPanel({ parsed, onUseBrief, onReparse }: P
                   )}
                   {m.rule.recommended_kits.length > 0 && (
                     <div className="pl-6 flex items-center gap-2 text-xs flex-wrap">
-                      <span className="text-[10px] text-muted-foreground w-24 shrink-0">Recommended Kits</span>
+                      <span className="text-[10px] text-muted-foreground w-36 shrink-0">Recommended Kits</span>
                       {m.rule.recommended_kits.map(k => (
                         <Badge key={k} className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0">{k}</Badge>
                       ))}
-                    </div>
-                  )}
-
-                  {/* CAEN */}
-                  {m.rule.supporting_caen_codes.length > 0 && (
-                    <div className="pl-6">
-                      <LabeledField label="Supporting CAEN" value={m.rule.supporting_caen_codes.join(', ')} />
                     </div>
                   )}
 
@@ -353,13 +385,13 @@ export default function ExtractedBriefPanel({ parsed, onUseBrief, onReparse }: P
           <CardContent className="space-y-2.5 px-4 pb-4">
             {parsed.recommended_products.length > 0 && (
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 font-semibold">Produse recomandate</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 font-semibold">Recommended Products</p>
                 <p className="text-xs text-foreground">{parsed.recommended_products.join(', ')}</p>
               </div>
             )}
             {parsed.recommended_kits.length > 0 && (
               <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 font-semibold">Kituri recomandate</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1 font-semibold">Recommended Kits</p>
                 <div className="flex flex-wrap gap-1.5">
                   {parsed.recommended_kits.map(k => (
                     <Badge key={k} className="bg-blue-50 text-blue-700 border-blue-200 text-xs">{k}</Badge>
@@ -392,38 +424,8 @@ export default function ExtractedBriefPanel({ parsed, onUseBrief, onReparse }: P
 
       {/* CTA — Use this as Brief */}
       <Button onClick={onUseBrief} className="w-full bg-accent text-accent-foreground hover:bg-accent/90 shadow-md shadow-accent/20" size="lg">
-        <FileText className="mr-2 h-4 w-4" /> Use this as Brief → Analiză completă
+        <FileText className="mr-2 h-4 w-4" /> Use this as Brief
       </Button>
-    </div>
-  );
-}
-
-function InfoRow({ label, value, icon, editable }: { label: string; value: string | null; icon?: React.ReactNode; editable?: boolean }) {
-  if (editable) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="text-muted-foreground flex items-center gap-1 w-24 shrink-0">{icon}{label}</span>
-        <Input defaultValue={value || ''} className="h-6 text-xs px-2" />
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-muted-foreground flex items-center gap-1">{icon}{label}</span>
-      {value ? (
-        <span className="font-medium text-foreground">{value}</span>
-      ) : (
-        <span className="text-muted-foreground/50 italic">nedetectat</span>
-      )}
-    </div>
-  );
-}
-
-function LabeledField({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className="text-[10px] text-muted-foreground w-24 shrink-0">{label}</span>
-      <span className={`text-foreground ${bold ? 'font-semibold' : ''}`}>{value}</span>
     </div>
   );
 }
