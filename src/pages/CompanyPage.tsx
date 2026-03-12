@@ -1,7 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { useData } from '@/contexts/DataContext';
 import AppLayout from '@/components/AppLayout';
-import CompanyEnrichmentPanel from '@/components/CompanyEnrichmentPanel';
+import VerifiedCompanyDataPanel from '@/components/VerifiedCompanyDataPanel';
+import CommercialEnrichmentPanel from '@/components/CommercialEnrichmentPanel';
 import SalesCopilotPanel from '@/components/SalesCopilotPanel';
 import DocumentPackPanel from '@/components/DocumentPackPanel';
 import OnboardingChecklistPanel from '@/components/OnboardingChecklistPanel';
