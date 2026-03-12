@@ -2,6 +2,16 @@
 
 export type EligibilityStatus = 'eligible' | 'conditionally_eligible' | 'not_eligible_but_convertible';
 
+export interface ReasoningStep {
+  item: string;
+  baseType: string;
+  deliverableType: string;
+  operations: string[];
+  caen: string[];
+  eligible: boolean;
+  explanation: string;
+}
+
 export interface EligibilityResult {
   verdict: EligibilityStatus;
   explanation: string;
@@ -12,6 +22,7 @@ export interface EligibilityResult {
   alternative_kits: string[];
   sales_angle: string;
   confidence_score: number;
+  reasoning_steps?: ReasoningStep[];
 }
 
 export type DetectedPurpose =
