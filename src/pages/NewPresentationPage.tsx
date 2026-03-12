@@ -361,6 +361,7 @@ export default function NewPresentationPage() {
                               recommendedKits={briefAnalysis.recommended_kits_from_rules}
                             />
                           )}
+                        </div>
                       )}
 
                       {!briefAnalysis && (
