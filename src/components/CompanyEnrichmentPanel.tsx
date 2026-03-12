@@ -686,7 +686,7 @@ function EnrichmentField({ icon: Icon, label, value, isOverridden, isEditing, st
         <Icon className="h-3 w-3 text-muted-foreground" />
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
         {isOverridden && (
-          <Badge className="h-4 text-[8px] px-1 bg-warning/20 text-warning border-0">manual</Badge>
+          <Badge className="h-4 text-[8px] px-1 bg-warning/20 text-warning border-0">Manual override</Badge>
         )}
         {!isOverridden && status === 'estimated' && (
           <div className="h-1.5 w-1.5 rounded-full bg-warning" title="Estimat" />
