@@ -160,6 +160,7 @@ export function rankKits(
   department: string,
   intent: DetectedIntent,
   signals: CompanySignals,
+  historicalBoosts?: HistoricalBoost | null,
 ): RankedKit[] {
   const profile = getIndustryProfile(industry);
   const affinityCategories = INTENT_KIT_AFFINITY[intent.primary_intent] || ['Corporate'];
@@ -167,6 +168,7 @@ export function rankKits(
   return kits
     .filter(k => k.active)
     .map(kit => {
+      const histScore = historicalBoosts?.kit_boosts?.[kit.name] ?? 0;
       const factors: ScoreFactors = {
         industry_match: profile.suggested_kit_categories.includes(kit.category) ? 1.0
           : kit.suggested_industries_json.some(i => i === 'Toate industriile') ? 0.5 : 0.2,
@@ -178,6 +180,7 @@ export function rankKits(
           department.toLowerCase().includes(d.toLowerCase()) || d.toLowerCase().includes(department.toLowerCase())
         ) ? 1.0 : 0.2,
         utility_score: computeKitUtility(kit, signals),
+        historical_success: (histScore + 1) / 2,
       };
 
       const score =
@@ -185,7 +188,8 @@ export function rankKits(
         factors.intent_match * WEIGHTS.intent_match +
         factors.eligibility_strength * WEIGHTS.eligibility_strength +
         factors.department_relevance * WEIGHTS.department_relevance +
-        factors.utility_score * WEIGHTS.utility_score;
+        factors.utility_score * WEIGHTS.utility_score +
+        factors.historical_success * WEIGHTS.historical_success;
 
       return { kit, score: Math.round(score * 100) / 100, factors };
     })
