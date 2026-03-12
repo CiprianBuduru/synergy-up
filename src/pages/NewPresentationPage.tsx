@@ -218,7 +218,13 @@ export default function NewPresentationPage() {
     // Step 3: Run analysis immediately
     const analysis = analyzeBrief(cleanedText);
     setBriefAnalysis(analysis);
-    setEmailFlowStatus(prev => [...new Set([...prev, 'brief_created', 'rules_matched', 'recommendations_generated'])]);
+    setEmailFlowStatus(prev => {
+      const next = new Set(prev);
+      next.add('brief_created');
+      next.add('rules_matched');
+      next.add('recommendations_generated');
+      return Array.from(next) as typeof prev;
+    });
     setTone(analysis.tone as PresentationTone);
 
     // Move to step 2 with analysis already done
