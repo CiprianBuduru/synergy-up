@@ -1,4 +1,4 @@
-import { BookOpen, ArrowRight, CheckCircle2, XCircle, ArrowRightLeft, Lightbulb, Layers, Target, Crosshair, Search } from 'lucide-react';
+import { BookOpen, ArrowRight, ArrowDown, CheckCircle2, XCircle, ArrowRightLeft, Lightbulb, Layers, Target, Crosshair, Search, Package } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { BriefRuleMatch, RuleMatchType } from '@/types/brief-rule';
@@ -10,10 +10,25 @@ interface Props {
   recommendedKits?: string[];
 }
 
-const TYPE_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle2 }> = {
-  direct: { label: 'Eligibil direct', color: 'text-emerald-600 bg-emerald-50 border-emerald-200', icon: CheckCircle2 },
-  via_operation: { label: 'Eligibil prin operațiune', color: 'text-amber-600 bg-amber-50 border-amber-200', icon: ArrowRightLeft },
-  convertible: { label: 'Convertibil', color: 'text-rose-600 bg-rose-50 border-rose-200', icon: XCircle },
+const VERDICT_CONFIG: Record<string, { label: string; description: string; color: string; icon: typeof CheckCircle2 }> = {
+  direct: {
+    label: 'Eligibil direct',
+    description: 'Poate fi achiziționat direct prin unitatea protejată.',
+    color: 'text-emerald-600 bg-emerald-50 border-emerald-200',
+    icon: CheckCircle2,
+  },
+  via_operation: {
+    label: 'Neeligibil direct, dar eligibil prin operațiune',
+    description: 'Devine eligibil prin aplicarea unei operațiuni interne autorizate.',
+    color: 'text-amber-600 bg-amber-50 border-amber-200',
+    icon: ArrowRightLeft,
+  },
+  convertible: {
+    label: 'Neeligibil direct, dar convertibil în soluție eligibilă',
+    description: 'Poate fi înlocuit cu o alternativă eligibilă.',
+    color: 'text-rose-600 bg-rose-50 border-rose-200',
+    icon: XCircle,
+  },
 };
 
 const MATCH_TYPE_CONFIG: Record<RuleMatchType, { label: string; icon: typeof Target; className: string }> = {
@@ -37,87 +52,108 @@ export default function BriefRulesPanel({ matches, pitchLines, recommendedKits }
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Rule matches */}
         {matches.map((m, i) => {
-          const cfg = TYPE_CONFIG[m.rule.eligibility_type] || TYPE_CONFIG.via_operation;
+          const cfg = VERDICT_CONFIG[m.rule.eligibility_type] || VERDICT_CONFIG.via_operation;
           const Icon = cfg.icon;
           const matchCfg = MATCH_TYPE_CONFIG[m.rule_type] || MATCH_TYPE_CONFIG.fallback_match;
           const MatchIcon = matchCfg.icon;
 
           return (
-            <div key={i} className={`rounded-lg border p-3 space-y-2.5 ${cfg.color}`}>
-              {/* Header row */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="font-semibold text-sm text-foreground">{m.rule.requested_item}</span>
-                <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0">{cfg.label}</Badge>
+            <div key={i} className={`rounded-lg border p-4 space-y-3 ${cfg.color}`}>
+              {/* Verdict banner */}
+              <div className="flex items-start gap-2">
+                <Icon className="h-4 w-4 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-sm text-foreground">{cfg.label}</p>
+                  <p className="text-[10px] text-muted-foreground">{cfg.description}</p>
+                </div>
               </div>
 
-              {/* Match metadata row */}
-              <div className="pl-6 flex items-center gap-2 flex-wrap">
-                <Badge variant="outline" className={`text-[10px] px-1.5 py-0 flex items-center gap-1 ${matchCfg.className}`}>
-                  <MatchIcon className="h-3 w-3" />
-                  {matchCfg.label}
-                </Badge>
-                <span className="text-[10px] text-muted-foreground">
-                  Confidence: <strong className="text-foreground">{Math.round(m.confidence * 100)}%</strong>
-                </span>
+              {/* Labeled fields */}
+              <div className="space-y-1.5 pl-6">
+                <LabeledRow label="Requested Item" value={m.rule.requested_item} bold />
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground w-32 shrink-0">Rule Type</span>
+                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 flex items-center gap-1 ${matchCfg.className}`}>
+                    <MatchIcon className="h-3 w-3" />
+                    {matchCfg.label}
+                  </Badge>
+                </div>
+                <LabeledRow label="Confidence" value={`${Math.round(m.confidence * 100)}%`} />
                 {m.matched_keyword && (
-                  <span className="text-[10px] text-muted-foreground">
-                    Matched: <code className="bg-background/50 px-1 rounded text-foreground">{m.matched_keyword}</code>
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground w-32 shrink-0">Matched Keyword</span>
+                    <code className="bg-background/50 px-1.5 py-0.5 rounded text-[10px] text-foreground">{m.matched_keyword}</code>
+                  </div>
                 )}
               </div>
 
+              {/* Transformation flow */}
               {!m.rule.direct_eligible && (
-                <div className="pl-6 space-y-1.5">
-                  <div className="flex items-start gap-1.5 text-xs">
-                    <span className="text-muted-foreground shrink-0">Operațiuni necesare:</span>
+                <div className="pl-6 rounded-md border border-border/40 bg-background/30 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-xs">
+                    <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-muted-foreground">Requested Item:</span>
+                    <span className="font-medium text-foreground">{m.rule.requested_item}</span>
+                  </div>
+                  <div className="flex items-center gap-2 pl-5">
+                    <ArrowDown className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                  <div className="flex items-start gap-2 text-xs">
+                    <ArrowRightLeft className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                    <span className="text-muted-foreground shrink-0">Eligible via Operation:</span>
                     <div className="flex flex-wrap gap-1">
                       {m.rule.eligible_via_operation.map(op => (
                         <Badge key={op} variant="secondary" className="text-[10px] px-1.5 py-0">{op}</Badge>
                       ))}
                     </div>
                   </div>
-                  <div className="flex items-start gap-1.5 text-xs">
-                    <span className="text-muted-foreground shrink-0">Produs eligibil rezultat:</span>
+                  <div className="flex items-center gap-2 pl-5">
+                    <ArrowDown className="h-3 w-3 text-muted-foreground" />
+                  </div>
+                  <div className="flex items-start gap-2 text-xs">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                    <span className="text-muted-foreground shrink-0">Eligible Result:</span>
                     <span className="font-medium text-foreground">{m.rule.eligible_result.join(', ')}</span>
                   </div>
                 </div>
               )}
 
+              {/* Supporting CAEN */}
               {m.rule.supporting_caen_codes.length > 0 && (
-                <div className="pl-6 flex items-center gap-1.5 text-xs flex-wrap">
-                  <span className="text-muted-foreground">CAEN:</span>
-                  {m.rule.supporting_caen_codes.map(c => (
-                    <Badge key={c} variant="outline" className="font-mono text-[10px] px-1.5 py-0">
-                      {c} — {AUTHORIZED_CAEN[c] || c}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-
-              {/* Recommended products & kits */}
-              {m.rule.recommended_products.length > 0 && (
-                <div className="pl-6 flex items-start gap-1.5 text-xs">
-                  <span className="text-muted-foreground shrink-0">Produse recomandate:</span>
-                  <span className="text-foreground">{m.rule.recommended_products.join(', ')}</span>
-                </div>
-              )}
-              {m.rule.recommended_kits.length > 0 && (
-                <div className="pl-6 flex items-start gap-1.5 text-xs">
-                  <span className="text-muted-foreground shrink-0">Kituri recomandate:</span>
+                <div className="pl-6 flex items-start gap-2 text-xs flex-wrap">
+                  <span className="text-[10px] text-muted-foreground w-32 shrink-0">Supporting CAEN</span>
                   <div className="flex flex-wrap gap-1">
-                    {m.rule.recommended_kits.map(k => (
-                      <Badge key={k} className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0">{k}</Badge>
+                    {m.rule.supporting_caen_codes.map(c => (
+                      <Badge key={c} variant="outline" className="font-mono text-[10px] px-1.5 py-0">
+                        {c} — {AUTHORIZED_CAEN[c] || c}
+                      </Badge>
                     ))}
                   </div>
                 </div>
               )}
 
+              {/* Recommended products */}
+              {m.rule.recommended_products.length > 0 && (
+                <div className="pl-6">
+                  <LabeledRow label="Recommended Products" value={m.rule.recommended_products.join(', ')} />
+                </div>
+              )}
+
+              {/* Recommended kits */}
+              {m.rule.recommended_kits.length > 0 && (
+                <div className="pl-6 flex items-center gap-2 text-xs flex-wrap">
+                  <span className="text-[10px] text-muted-foreground w-32 shrink-0">Recommended Kits</span>
+                  {m.rule.recommended_kits.map(k => (
+                    <Badge key={k} className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] px-1.5 py-0">{k}</Badge>
+                  ))}
+                </div>
+              )}
+
+              {/* Pitch line */}
               <div className="pl-6">
-                <p className="text-xs text-muted-foreground italic">{m.rule.pitch_line}</p>
+                <span className="text-[10px] text-muted-foreground">Pitch Line</span>
+                <p className="text-xs text-foreground italic mt-0.5">{m.rule.pitch_line}</p>
               </div>
             </div>
           );
@@ -157,5 +193,14 @@ export default function BriefRulesPanel({ matches, pitchLines, recommendedKits }
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function LabeledRow({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="text-[10px] text-muted-foreground w-32 shrink-0">{label}</span>
+      <span className={`text-foreground ${bold ? 'font-semibold' : ''}`}>{value}</span>
+    </div>
   );
 }
