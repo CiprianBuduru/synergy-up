@@ -100,22 +100,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       // If DB is empty, seed it
       const dbEmpty = cRes.data.length === 0 && prodRes.data.length === 0;
       if (dbEmpty) {
-        console.log('Database empty, seeding initial data...');
+        console.log('Database empty, attempting to seed...');
         await seedDatabase();
         // Re-fetch after seeding
-        const [c2, e2, p2, s2, b2, calc2, prod2, kit2] = await Promise.all([
-          db.fetchCompanies(), db.fetchEnrichments(), db.fetchPresentations(),
-          db.fetchSlides(), db.fetchBriefs(), db.fetchCalculations(),
-          db.fetchProducts(), db.fetchKits(),
-        ]);
-        setCompanies(c2.data);
-        setEnrichments(e2.data);
-        setPresentations(p2.data);
-        setSlidesState(s2.data);
-        setBriefs(b2.data);
-        setCalculations(calc2.data);
-        setProducts(prod2.data);
-        setKits(kit2.data);
+        try {
+          const [c2, e2, p2, s2, b2, calc2, prod2, kit2] = await Promise.all([
+            db.fetchCompanies(), db.fetchEnrichments(), db.fetchPresentations(),
+            db.fetchSlides(), db.fetchBriefs(), db.fetchCalculations(),
+            db.fetchProducts(), db.fetchKits(),
+          ]);
+          const hasError2 = [c2, e2, p2, s2, b2, calc2, prod2, kit2].some(r => r.error);
+          if (hasError2 || c2.data.length === 0) {
+            throw new Error('Re-fetch after seed failed or still empty');
+          }
+          setCompanies(c2.data);
+          setEnrichments(e2.data);
+          setPresentations(p2.data);
+          setSlidesState(s2.data);
+          setBriefs(b2.data);
+          setCalculations(calc2.data);
+          setProducts(prod2.data);
+          setKits(kit2.data);
+        } catch {
+          // Seed or re-fetch failed, use demo data
+          console.warn('Seed/re-fetch failed, falling back to demo mode');
+          setCompanies(seedCompanies);
+          setEnrichments(seedEnrichments);
+          setPresentations(seedPresentations);
+          setSlidesState(seedSlides);
+          setBriefs(seedBriefs);
+          setCalculations(seedCalculations);
+          setProducts(seedProducts);
+          setKits(seedKits);
+          setIsDemo(true);
+        }
       } else {
         setCompanies(cRes.data);
         setEnrichments(eRes.data);
