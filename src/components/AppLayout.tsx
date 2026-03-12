@@ -48,6 +48,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-3">
+            <SyncStatusIndicator />
             <span className="text-xs text-muted-foreground">{user?.name}</span>
             <Button variant="ghost" size="icon" onClick={logout}>
               <LogOut className="h-4 w-4" />
