@@ -103,29 +103,35 @@ function computeUtility(product: Product, signals: CompanySignals): number {
   return Math.min(score, 1.0);
 }
 
+import type { HistoricalBoost } from './recommendationLearningService';
+
 export function rankProducts(
   products: Product[],
   industry: string,
   department: string,
   intent: DetectedIntent,
   signals: CompanySignals,
+  historicalBoosts?: HistoricalBoost | null,
 ): RankedProduct[] {
   return products
     .filter(p => p.active)
     .map(product => {
+      const histScore = historicalBoosts?.product_boosts?.[product.name] ?? 0;
       const factors: ScoreFactors = {
         industry_match: computeIndustryMatch(product, industry),
         intent_match: computeIntentMatch(product, intent),
         eligibility_strength: computeEligibilityStrength(product),
         department_relevance: computeDepartmentRelevance(product, department),
         utility_score: computeUtility(product, signals),
+        historical_success: (histScore + 1) / 2, // normalize -1..1 to 0..1
       };
       const score =
         factors.industry_match * WEIGHTS.industry_match +
         factors.intent_match * WEIGHTS.intent_match +
         factors.eligibility_strength * WEIGHTS.eligibility_strength +
         factors.department_relevance * WEIGHTS.department_relevance +
-        factors.utility_score * WEIGHTS.utility_score;
+        factors.utility_score * WEIGHTS.utility_score +
+        factors.historical_success * WEIGHTS.historical_success;
 
       return { product, score: Math.round(score * 100) / 100, factors };
     })
