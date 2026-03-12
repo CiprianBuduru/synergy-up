@@ -205,7 +205,11 @@ export default function NewPresentationPage() {
         console.warn('Company creation failed, continuing without company');
       }
     }
-    setEmailFlowStatus(prev => [...new Set([...prev, 'brief_created'])]);
+    setEmailFlowStatus(prev => {
+      const next = new Set(prev);
+      next.add('brief_created');
+      return Array.from(next) as typeof prev;
+    });
 
     // Step 2: Set brief text and auto-analyze
     const cleanedText = parsedEmail.cleaned_body;
