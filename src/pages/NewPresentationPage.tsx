@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, Plus, Users, Brain, Mail, ShieldCheck, CloudOff, Eye } from 'lucide-react';
 import { analyzeBrief } from '@/lib/eligibility-engine';
+import { searchCompanies, getCompanySearchResult } from '@/services/companySearchService';
 import { detectIntent, INTENT_LABELS } from '@/services/intentDetectionService';
 import { analyzeCompanySignals } from '@/services/companySignalsService';
 import { getIndustryProfile } from '@/services/industryIntelligenceService';
