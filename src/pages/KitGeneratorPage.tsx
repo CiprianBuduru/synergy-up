@@ -15,6 +15,7 @@ import { Package, Sparkles, ShieldCheck, Wrench, FileCode, AlertTriangle, CheckC
 import { useData } from '@/contexts/DataContext';
 import { recommendKits, kitTemplates, type KitRecommendation } from '@/lib/kit-generator';
 import { analyzeBrief } from '@/lib/eligibility-engine';
+import EligibilityBadge from '@/components/EligibilityBadge';
 import type { Kit, KitComplexity } from '@/types';
 
 const complexityConfig: Record<KitComplexity, { label: string; color: string; icon: React.ReactNode }> = {
