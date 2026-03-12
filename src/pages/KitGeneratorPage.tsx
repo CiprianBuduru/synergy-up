@@ -58,15 +58,15 @@ export default function KitGeneratorPage() {
 
   const allDepartments = useMemo(() => {
     const deps = new Set<string>();
-    seedKits.forEach(k => k.target_departments.forEach(d => deps.add(d)));
+    data.kits.forEach(k => k.target_departments.forEach(d => deps.add(d)));
     return [...deps].sort();
-  }, []);
+  }, [data.kits]);
 
   const allIndustries = useMemo(() => {
     const inds = new Set<string>();
-    seedKits.forEach(k => k.suggested_industries_json.forEach(i => inds.add(i)));
+    data.kits.forEach(k => k.suggested_industries_json.forEach(i => inds.add(i)));
     return [...inds].sort();
-  }, []);
+  }, [data.kits]);
 
   const filteredCatalog = useMemo(() => {
     return seedKits.filter(k => {
