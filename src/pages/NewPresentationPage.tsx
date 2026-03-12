@@ -50,6 +50,7 @@ export default function NewPresentationPage() {
   // Email parser state
   const [rawEmail, setRawEmail] = useState('');
   const [parsedEmail, setParsedEmail] = useState<ParsedEmailBrief | null>(null);
+  const [emailFlowStatus, setEmailFlowStatus] = useState<('parsed' | 'brief_created' | 'rules_matched' | 'recommendations_generated')[]>([]);
 
   const company = data.getCompany(selectedCompanyId);
   const enrichment = data.getEnrichment(selectedCompanyId);
