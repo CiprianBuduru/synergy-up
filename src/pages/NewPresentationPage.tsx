@@ -113,7 +113,14 @@ export default function NewPresentationPage() {
     const calc = data.calculations.find(c => c.company_id === company.id);
     const brief = data.briefs.find(b => b.company_id === company.id);
     const tempId = crypto.randomUUID();
-    const slides = generatePresentation(tempId, company, enrichment || null, calc || null, brief || null, tone);
+    const slides = generatePresentation(tempId, company, enrichment || null, calc || null, brief || null, tone, {
+      signals: companySignals,
+      intent: detectedIntent,
+      pitchStrategy,
+      eligibility: briefAnalysis?.eligibility || null,
+      rankedProducts: rankedProducts.map(rp => rp),
+      rankedKits: rankedKits.map(rk => rk),
+    });
     const pres = await data.addPresentation({
       company_id: company.id, brief_id: brief?.id || null,
       title: `Prezentare ${company.company_name}`,
