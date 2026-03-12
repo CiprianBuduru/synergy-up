@@ -298,7 +298,8 @@ export default function CompanyEnrichmentPanel({ company, enrichment, onUpdateEn
   const empMin = enrichment?.employee_count_min;
   const empMax = enrichment?.employee_count_max;
   const empEstimate = enrichment?.employee_count_estimate;
-  const statusBadge = getStatusBadge(enrichment?.enrichment_status || 'needs_confirmation', hasOverrides);
+  const isDemoData = enrichment?.sources_json?.includes('Introducere manuală') || enrichment?.sources_json?.includes('demo') || enrichment?.sources_json?.some(s => s.toLowerCase().includes('seed'));
+  const statusBadge = getStatusBadge(enrichment?.enrichment_status || 'needs_confirmation', hasOverrides, !!isDemoData);
   const StatusBadgeIcon = statusBadge.icon;
 
   return (
