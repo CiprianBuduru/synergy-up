@@ -1,10 +1,10 @@
-import { CheckCircle2, AlertTriangle, ArrowRightLeft, ShieldCheck, Factory, Lightbulb, TrendingUp, Package, Layers } from 'lucide-react';
+import { CheckCircle2, XCircle, AlertTriangle, ArrowRightLeft, ShieldCheck, Factory, Lightbulb, TrendingUp, Package, Layers, Workflow, ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import EligibilityBadge from '@/components/EligibilityBadge';
-import type { EligibilityResult } from '@/types';
-import { AUTHORIZED_CAEN } from '@/lib/eligibility-engine';
+import type { EligibilityResult, ReasoningStep } from '@/types';
+import { AUTHORIZED_CAEN } from '@/services/eligibility';
 
 interface Props {
   result: EligibilityResult;
@@ -13,6 +13,7 @@ interface Props {
 
 export default function EligibilityReasoningPanel({ result, title }: Props) {
   const confidencePct = Math.round(result.confidence_score * 100);
+  const steps = result.reasoning_steps || [];
 
   return (
     <Card className="border-border/60 overflow-hidden">
@@ -35,12 +36,23 @@ export default function EligibilityReasoningPanel({ result, title }: Props) {
         </div>
 
         {/* Explanation */}
-        <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-sm text-foreground leading-relaxed">
+        <div className="rounded-lg border border-border/50 bg-muted/30 p-3 text-sm text-foreground leading-relaxed whitespace-pre-line">
           {result.explanation}
         </div>
 
+        {/* Reasoning Steps */}
+        {steps.length > 0 && (
+          <Section icon={Workflow} label="Raționament detaliat">
+            <div className="space-y-2">
+              {steps.map((step, i) => (
+                <ReasoningStepCard key={i} step={step} />
+              ))}
+            </div>
+          </Section>
+        )}
+
         {/* Internal operations */}
-        {result.internal_operation_used.length > 0 && result.internal_operation_used[0] !== 'De determinat' && (
+        {result.internal_operation_used.length > 0 && (
           <Section icon={Factory} label="Operațiuni interne realizate">
             <div className="flex flex-wrap gap-1.5">
               {result.internal_operation_used.map(op => (
@@ -53,7 +65,7 @@ export default function EligibilityReasoningPanel({ result, title }: Props) {
         )}
 
         {/* CAEN codes */}
-        {result.supporting_caen_codes.length > 0 && result.supporting_caen_codes[0] !== 'De determinat' && (
+        {result.supporting_caen_codes.length > 0 && (
           <Section icon={ShieldCheck} label="Coduri CAEN suport">
             <div className="space-y-1">
               {result.supporting_caen_codes.map(code => (
@@ -113,6 +125,43 @@ export default function EligibilityReasoningPanel({ result, title }: Props) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function ReasoningStepCard({ step }: { step: ReasoningStep }) {
+  return (
+    <div className={`rounded-lg border p-3 text-xs space-y-2 ${
+      step.eligible 
+        ? 'border-emerald-200/60 bg-emerald-50/30' 
+        : 'border-rose-200/60 bg-rose-50/30'
+    }`}>
+      <div className="flex items-center gap-2">
+        {step.eligible 
+          ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+          : <XCircle className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+        }
+        <span className="font-semibold text-foreground">{step.item}</span>
+        <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+        <span className="text-muted-foreground">{step.deliverableType}</span>
+      </div>
+      {step.eligible && step.operations.length > 0 && (
+        <div className="flex items-center gap-1.5 pl-5">
+          <span className="text-muted-foreground">Operațiuni:</span>
+          {step.operations.map(op => (
+            <Badge key={op} variant="secondary" className="text-[10px] px-1.5 py-0">{op}</Badge>
+          ))}
+        </div>
+      )}
+      {step.eligible && step.caen.length > 0 && (
+        <div className="flex items-center gap-1.5 pl-5">
+          <span className="text-muted-foreground">CAEN:</span>
+          {step.caen.map(c => (
+            <Badge key={c} variant="outline" className="font-mono text-[10px] px-1.5 py-0">{c}</Badge>
+          ))}
+        </div>
+      )}
+      <p className="text-muted-foreground pl-5">{step.explanation}</p>
+    </div>
   );
 }
 
