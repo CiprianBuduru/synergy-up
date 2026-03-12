@@ -308,7 +308,7 @@ export default function CompanyEnrichmentPanel({ company, enrichment, onUpdateEn
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <CardTitle className="font-display text-base truncate">Date companie</CardTitle>
+            <CardTitle className="font-display text-base truncate">Verified Company Data</CardTitle>
             <Badge variant="outline" className={`gap-1 text-[10px] shrink-0 ${statusBadge.className}`}>
               <StatusBadgeIcon className="h-3 w-3" />
               {statusBadge.label}
