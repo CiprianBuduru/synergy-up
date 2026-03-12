@@ -306,15 +306,45 @@ export default function NewPresentationPage() {
                       <div className="max-h-[400px] space-y-1 overflow-y-auto pr-1">
                         {filteredCompanies.map(c => {
                           const cEnrichment = data.getEnrichment(c.id);
+                          const isDemo = !cEnrichment || cEnrichment.sources_json?.includes('Introducere manuală') || cEnrichment.sources_json?.includes('demo');
+                          const isVerified = cEnrichment?.enrichment_status === 'verified';
                           return (
                             <div key={c.id} onClick={() => setSelectedCompanyId(c.id)} className={`cursor-pointer rounded-xl border p-3 transition-all ${selectedCompanyId === c.id ? 'border-accent bg-accent/5 shadow-sm shadow-accent/10' : 'border-transparent hover:bg-muted/50 hover:border-border'}`}>
                               <div className="flex items-center gap-2.5">
                                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/5 font-display text-[10px] font-bold text-primary">{c.company_name.slice(0, 2).toUpperCase()}</div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium text-foreground truncate">{c.company_name}</p>
-                                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                    <span>{c.industry}</span><span>•</span><span>{c.location}</span>
+                                  {c.legal_name && c.legal_name !== c.company_name && (
+                                    <p className="text-[10px] text-muted-foreground truncate">{c.legal_name}</p>
+                                  )}
+                                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground flex-wrap">
+                                    {cEnrichment?.caen_code && <span className="font-mono">CUI: {cEnrichment.caen_code}</span>}
+                                    {c.location && <><span>•</span><span>{c.location}</span></>}
                                     {cEnrichment && (<><span>•</span><Users className="h-2.5 w-2.5" /><span>{cEnrichment.employee_count_estimate || '?'}</span></>)}
+                                  </div>
+                                  <div className="flex items-center gap-1 mt-1">
+                                    {isVerified ? (
+                                      <Badge variant="outline" className="text-[8px] h-4 px-1 border-success/30 text-success bg-success/5 gap-0.5">
+                                        <ShieldCheck className="h-2.5 w-2.5" /> Verified source
+                                      </Badge>
+                                    ) : isDemo ? (
+                                      <Badge variant="outline" className="text-[8px] h-4 px-1 border-warning/30 text-warning bg-warning/5 gap-0.5">
+                                        <CloudOff className="h-2.5 w-2.5" /> Demo data
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="outline" className="text-[8px] h-4 px-1 border-muted-foreground/30 text-muted-foreground gap-0.5">
+                                        <Eye className="h-2.5 w-2.5" /> Estimated
+                                      </Badge>
+                                    )}
+                                    {cEnrichment?.enrichment_status && (
+                                      <Badge variant="outline" className={`text-[8px] h-4 px-1 gap-0.5 ${
+                                        cEnrichment.enrichment_status === 'verified' ? 'border-success/30 text-success bg-success/5' :
+                                        cEnrichment.enrichment_status === 'estimated' ? 'border-warning/30 text-warning bg-warning/5' :
+                                        'border-destructive/30 text-destructive bg-destructive/5'
+                                      }`}>
+                                        {cEnrichment.enrichment_status === 'verified' ? 'Verificat' : cEnrichment.enrichment_status === 'estimated' ? 'Estimat' : 'Neconfirmat'}
+                                      </Badge>
+                                    )}
                                   </div>
                                 </div>
                                 {selectedCompanyId === c.id && <CheckCircle2 className="h-4 w-4 shrink-0 text-accent" />}
