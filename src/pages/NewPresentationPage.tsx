@@ -20,6 +20,7 @@ import { getIndustryProfile } from '@/services/industryIntelligenceService';
 import { rankProducts, rankKits } from '@/services/solutionRankingService';
 import { generatePitchStrategy } from '@/services/pitchStrategyService';
 import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
+import BriefRulesPanel from '@/components/BriefRulesPanel';
 import { generatePresentation } from '@/lib/presentation-generator';
 import { presentationTemplates } from '@/lib/presentation-templates';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
