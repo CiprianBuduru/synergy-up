@@ -424,7 +424,7 @@ export default function CompanyEnrichmentPanel({ company, enrichment, onUpdateEn
                 )}
                 {isOverridden('employee_count_estimate') && (
                   <Badge variant="outline" className="text-[10px] border-warning/30 text-warning bg-warning/5 gap-0.5">
-                    <Edit3 className="h-2.5 w-2.5" /> manual
+                    <Edit3 className="h-2.5 w-2.5" /> Manual override
                   </Badge>
                 )}
               </div>
