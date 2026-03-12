@@ -342,7 +342,53 @@ export default function NewPresentationPage() {
             </motion.div>
           )}
 
-          {/* Step 2: Brief */}
+          {/* Step 1: Email mode */}
+          {step === 1 && inputMode === 'email' && (
+            <motion.div key="s1-email" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {/* Left: Email input */}
+                <Card className="border-0 shadow-md">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="font-display text-lg flex items-center gap-2">
+                      <Mail className="h-5 w-5 text-primary" /> Lipește emailul primit
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground">Copiază conținutul emailului. Sistemul extrage automat compania, contactul, produsele cerute și tipul de cerere.</p>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Textarea
+                      placeholder={"Bună ziua,\n\nVă rugăm să ne transmiteți o prezentare și lista cu articolele/serviciile pe care le puteți oferi prin unitatea protejată.\n\nSuntem interesați de:\n- hârtie copiator\n- dosare\n- pixuri\n- materiale de prezentare\n\nCu stimă,\nIon Popescu\nManager Achiziții\nCompania ABC S.R.L.\nion.popescu@abc.ro\n+40 721 123 456"}
+                      value={rawEmail}
+                      onChange={e => setRawEmail(e.target.value)}
+                      rows={14}
+                      className="resize-none font-mono text-sm"
+                    />
+                    <Button
+                      onClick={handleParseEmail}
+                      disabled={!rawEmail.trim()}
+                      className="w-full bg-accent text-accent-foreground hover:bg-accent/90"
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" /> Parse Email
+                    </Button>
+                  </CardContent>
+                </Card>
+
+                {/* Right: Extracted Brief */}
+                <div>
+                  {parsedEmail ? (
+                    <ExtractedBriefPanel parsed={parsedEmail} onUseBrief={handleUseEmailAsBrief} />
+                  ) : (
+                    <Card className="border-dashed border-2 border-muted flex items-center justify-center min-h-[400px]">
+                      <div className="text-center space-y-2 p-8">
+                        <Mail className="h-10 w-10 mx-auto text-muted-foreground/40" />
+                        <p className="text-sm text-muted-foreground">Lipește un email și apasă "Parse Email" pentru a vedea brief-ul extras</p>
+                      </div>
+                    </Card>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
           {step === 2 && (
             <motion.div key="s2" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
