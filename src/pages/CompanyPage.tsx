@@ -21,7 +21,8 @@ import { generateOpportunityInsights } from '@/services/opportunityInsightsServi
 
 export default function CompanyPage() {
   const { id } = useParams<{ id: string }>();
-  const { getCompany, getEnrichment, updateCompany, calculations, briefs } = useData();
+  const data = useData();
+  const { getCompany, getEnrichment, updateCompany, calculations, briefs } = data;
   const company = getCompany(id || '');
   const enrichment = getEnrichment(id || '');
 
