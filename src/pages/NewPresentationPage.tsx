@@ -365,6 +365,27 @@ export default function NewPresentationPage() {
           {/* Step 1: Email mode */}
           {step === 1 && inputMode === 'email' && (
             <motion.div key="s1-email" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
+              {/* Analysis state feedback */}
+              {emailFlowStatus.length > 0 && (
+                <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+                  {[
+                    { key: 'parsed', label: 'Email parsed' },
+                    { key: 'brief_created', label: 'Brief created' },
+                    { key: 'rules_matched', label: 'Rules matched' },
+                    { key: 'recommendations_generated', label: 'Recommendations generated' },
+                  ].map(({ key, label }) => (
+                    <div key={key} className="flex items-center gap-1.5 text-xs">
+                      {emailFlowStatus.includes(key as any) ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      ) : (
+                        <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/30" />
+                      )}
+                      <span className={emailFlowStatus.includes(key as any) ? 'text-foreground font-medium' : 'text-muted-foreground'}>{label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {/* Left: Email input */}
                 <Card className="border-0 shadow-md">
@@ -393,9 +414,9 @@ export default function NewPresentationPage() {
                 </Card>
 
                 {/* Right: Extracted Brief */}
-                <div>
+                <div className="max-h-[700px] overflow-y-auto pr-1">
                   {parsedEmail ? (
-                    <ExtractedBriefPanel parsed={parsedEmail} onUseBrief={handleUseEmailAsBrief} />
+                    <ExtractedBriefPanel parsed={parsedEmail} onUseBrief={handleUseEmailAsBrief} onReparse={handleReparse} />
                   ) : (
                     <Card className="border-dashed border-2 border-muted flex items-center justify-center min-h-[400px]">
                       <div className="text-center space-y-2 p-8">
