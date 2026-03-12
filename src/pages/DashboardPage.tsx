@@ -21,6 +21,11 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 export default function DashboardPage() {
   const { companies, presentations, calculations } = useData();
   const [search, setSearch] = useState('');
+  const [salesStats, setSalesStats] = useState({ total_prospects: 0, presentations_sent: 0, interested: 0, won: 0 });
+
+  useEffect(() => {
+    fetchSalesStats().then(setSalesStats);
+  }, []);
 
   const filtered = companies.filter(c =>
     c.company_name.toLowerCase().includes(search.toLowerCase()) ||
