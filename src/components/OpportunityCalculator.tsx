@@ -50,7 +50,7 @@ export default function OpportunityCalculator({ companyId }: { companyId: string
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label className="text-xs">Nr. angajați</Label>
+          <Label className="text-xs">Număr mediu salariați din bilanț</Label>
           <Input type="number" value={employeeCount} onChange={e => setEmployeeCount(Number(e.target.value))} />
         </div>
         <div className="space-y-2">

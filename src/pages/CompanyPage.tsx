@@ -1,7 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { useData } from '@/contexts/DataContext';
 import AppLayout from '@/components/AppLayout';
-import CompanyEnrichmentPanel from '@/components/CompanyEnrichmentPanel';
+import VerifiedCompanyDataPanel from '@/components/VerifiedCompanyDataPanel';
+import CommercialEnrichmentPanel from '@/components/CommercialEnrichmentPanel';
 import SalesCopilotPanel from '@/components/SalesCopilotPanel';
 import DocumentPackPanel from '@/components/DocumentPackPanel';
 import OnboardingChecklistPanel from '@/components/OnboardingChecklistPanel';
@@ -20,7 +21,8 @@ import { generateOpportunityInsights } from '@/services/opportunityInsightsServi
 
 export default function CompanyPage() {
   const { id } = useParams<{ id: string }>();
-  const { getCompany, getEnrichment, updateCompany, calculations, briefs } = useData();
+  const data = useData();
+  const { getCompany, getEnrichment, updateCompany, calculations, briefs } = data;
   const company = getCompany(id || '');
   const enrichment = getEnrichment(id || '');
 
@@ -111,8 +113,11 @@ export default function CompanyPage() {
               </CardContent>
             </Card>
 
-            {/* Enrichment Panel */}
-            <CompanyEnrichmentPanel company={company} enrichment={enrichment || null} />
+            {/* Verified Company Data */}
+            <VerifiedCompanyDataPanel company={company} enrichment={enrichment || null} isDemo={data.isDemo} />
+
+            {/* Commercial Enrichment */}
+            <CommercialEnrichmentPanel company={company} enrichment={enrichment || null} isDemo={data.isDemo} />
           </div>
 
           {/* Sidebar */}
