@@ -34,6 +34,7 @@ export default function NewPresentationPage() {
   const preselectedCompanyId = searchParams.get('company');
 
   const [step, setStep] = useState(1);
+  const [inputMode, setInputMode] = useState<'company' | 'email'>('company');
   const [selectedCompanyId, setSelectedCompanyId] = useState(preselectedCompanyId || '');
   const [companySearch, setCompanySearch] = useState('');
   const [briefText, setBriefText] = useState('');
@@ -43,6 +44,10 @@ export default function NewPresentationPage() {
   const [generatedPresentationId, setGeneratedPresentationId] = useState<string | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
   const [manualForm, setManualForm] = useState({ company_name: '', industry: '', company_size: '', location: '', contact_name: '', contact_role: '', contact_department: 'HR', email: '' });
+
+  // Email parser state
+  const [rawEmail, setRawEmail] = useState('');
+  const [parsedEmail, setParsedEmail] = useState<ParsedEmailBrief | null>(null);
 
   const company = data.getCompany(selectedCompanyId);
   const enrichment = data.getEnrichment(selectedCompanyId);
