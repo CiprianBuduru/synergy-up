@@ -85,16 +85,41 @@ export function analyzeBrief(briefText: string): BriefAnalysisV2 {
   else if (/\b(participant|invitat|speaker)\b/.test(lower)) audience = 'Participanți eveniment';
   else if (/\b(candidat|recrutare)\b/.test(lower)) audience = 'Candidați';
 
-  // Eligibility
-  const eligibility = checkEligibility(briefText);
-  const hasNotEligible = notEligibleRules.some(r => r.keywords.some(kw => lower.includes(kw)));
-  const hasEligible = detectedProducts.length > 0;
+  // ── Brief Rules Engine (primary) ──
+  const rulesResult = analyzeBriefWithRules(briefText);
 
-  if (hasNotEligible && hasEligible && eligibility.verdict === 'not_eligible_but_convertible') {
-    eligibility.verdict = 'conditionally_eligible';
-    eligibility.explanation = 'Brief-ul conține atât produse eligibile cât și produse neeligibile. Recomandăm focusarea pe componentele eligibile și propunerea de alternative.';
-    eligibility.confidence_score = 0.75;
+  let eligibility;
+  if (rulesResult.matches.length > 0 && rulesResult.eligibility) {
+    // Rules engine matched — use its verdict (more precise)
+    eligibility = rulesResult.eligibility;
+  } else {
+    // Fallback to generic eligibility engine
+    eligibility = checkEligibility(briefText);
+    const hasNotEligible = notEligibleRules.some(r => r.keywords.some(kw => lower.includes(kw)));
+    const hasEligible = detectedProducts.length > 0;
+
+    if (hasNotEligible && hasEligible && eligibility.verdict === 'not_eligible_but_convertible') {
+      eligibility.verdict = 'conditionally_eligible';
+      eligibility.explanation = 'Brief-ul conține atât produse eligibile cât și produse neeligibile. Recomandăm focusarea pe componentele eligibile și propunerea de alternative.';
+      eligibility.confidence_score = 0.75;
+    }
   }
 
-  return { products: detectedProducts, purpose, audience, department, tone, eligibility, detected_intents: intents };
+  // Enrich detected products with rules recommendations
+  const enrichedProducts = rulesResult.matches.length > 0
+    ? [...new Set([...detectedProducts, ...rulesResult.recommended_products])]
+    : detectedProducts;
+
+  return {
+    products: enrichedProducts,
+    purpose,
+    audience,
+    department,
+    tone,
+    eligibility,
+    detected_intents: intents,
+    brief_rules_matches: rulesResult.matches,
+    recommended_kits_from_rules: rulesResult.recommended_kits,
+    pitch_lines_from_rules: rulesResult.pitch_lines,
+  };
 }
