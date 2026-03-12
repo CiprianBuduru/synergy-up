@@ -55,8 +55,7 @@ export default function NewPresentationPage() {
     if (!briefText.trim()) { setStep(3); return; }
     const analysis = analyzeBrief(briefText);
     setBriefAnalysis(analysis);
-    const brief: Brief = {
-      id: `brief-${Date.now()}`,
+    data.addBrief({
       company_id: selectedCompanyId,
       raw_brief: briefText,
       requested_products_json: analysis.products,
@@ -65,35 +64,33 @@ export default function NewPresentationPage() {
       department_detected: analysis.department,
       tone_recommended: analysis.tone,
       eligibility_status: analysis.eligibility.verdict,
-      created_at: new Date().toISOString(),
-    };
-    data.addBrief(brief);
+    });
     setTone(analysis.tone as PresentationTone);
     setStep(3);
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!company) return;
-    const presId = `pres-${Date.now()}`;
     const calc = data.calculations.find(c => c.company_id === company.id);
     const brief = data.briefs.find(b => b.company_id === company.id);
-    const slides = generatePresentation(presId, company, enrichment || null, calc || null, brief || null, tone);
-    data.addPresentation({
-      id: presId, company_id: company.id, brief_id: brief?.id || null,
+    const tempId = crypto.randomUUID();
+    const slides = generatePresentation(tempId, company, enrichment || null, calc || null, brief || null, tone);
+    const pres = await data.addPresentation({
+      company_id: company.id, brief_id: brief?.id || null,
       title: `Prezentare ${company.company_name}`,
       objective: `Prezentare comercială pentru ${company.company_name}`,
       tone, status: 'presentation_generated',
       generated_summary: `Prezentare cu ${slides.length} slide-uri generată automat.`,
-      created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     });
-    data.setSlides(slides);
-    setGeneratedPresentationId(presId);
+    if (pres) {
+      const remappedSlides = slides.map(s => ({ ...s, presentation_id: pres.id }));
+      await data.setSlides(remappedSlides);
+      setGeneratedPresentationId(pres.id);
+    }
   };
 
-  const handleCreateManualCompany = () => {
-    const newId = `manual-${Date.now()}`;
-    const newCompany: Company = {
-      id: newId,
+  const handleCreateManualCompany = async () => {
+    const newCompany = await data.addCompany({
       company_name: manualForm.company_name,
       legal_name: manualForm.company_name,
       website: '',
@@ -107,12 +104,11 @@ export default function NewPresentationPage() {
       email: manualForm.email,
       phone: '',
       notes: 'Companie creată manual din wizard',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    data.addCompany(newCompany);
-    setSelectedCompanyId(newId);
-    setShowManualEntry(false);
+    });
+    if (newCompany) {
+      setSelectedCompanyId(newCompany.id);
+      setShowManualEntry(false);
+    }
   };
 
   const purpose = briefAnalysis?.purpose || 'General corporate';

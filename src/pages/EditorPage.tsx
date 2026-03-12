@@ -121,9 +121,9 @@ export default function EditorPage() {
     setSaved(false);
   };
 
-  const handleSave = () => {
-    data.setSlides(editingSlides);
-    data.updatePresentation({ ...presentation, tone, updated_at: new Date().toISOString() });
+  const handleSave = async () => {
+    await data.setSlides(editingSlides);
+    await data.updatePresentation({ ...presentation, tone, updated_at: new Date().toISOString() });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

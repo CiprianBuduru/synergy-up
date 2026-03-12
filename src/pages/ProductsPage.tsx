@@ -103,7 +103,8 @@ export default function ProductsPage() {
     if (dialogMode === 'edit' && data.id) {
       updateProduct(data as Product);
     } else {
-      addProduct({ ...data, id: `prod-custom-${Date.now()}` } as Product);
+      const { id, ...rest } = data;
+      addProduct(rest as Omit<Product, 'id'>);
     }
     setDialogOpen(false);
   }

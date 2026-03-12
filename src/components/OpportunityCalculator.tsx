@@ -27,7 +27,6 @@ export default function OpportunityCalculator({ companyId }: { companyId: string
     const calc = calculateOpportunity(employeeCount, disabledEmployees, minWage);
     setResult(calc);
     addCalculation({
-      id: `calc-${Date.now()}`,
       company_id: companyId,
       employee_count_used: employeeCount,
       disabled_employees_declared: disabledEmployees,
@@ -37,7 +36,6 @@ export default function OpportunityCalculator({ companyId }: { companyId: string
       monthly_obligation_estimated: calc.monthly_obligation_estimated,
       spendable_half_estimated: calc.spendable_half_estimated,
       notes: '',
-      created_at: new Date().toISOString(),
     });
   };
 
