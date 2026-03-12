@@ -2,8 +2,9 @@ import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { useData } from '@/contexts/DataContext';
 import AppLayout from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Edit, Printer } from 'lucide-react';
+import { ArrowLeft, Edit, Printer, Package, Layers } from 'lucide-react';
 import { getTemplate, type PresentationTemplate } from '@/lib/presentation-templates';
 
 export default function PreviewPage() {
@@ -24,10 +25,14 @@ export default function PreviewPage() {
 
   const handlePrint = () => window.print();
 
-  const getSlideStyle = (type: string): { bg: string; text: string; layout: 'cover' | 'dark' | 'light' | 'accent' } => {
+  const getSlideStyle = (type: string, meta?: Record<string, unknown>): { bg: string; text: string; layout: 'cover' | 'dark' | 'light' | 'accent' } => {
     if (type === 'cover') return { bg: template.coverBg, text: template.coverText, layout: 'cover' };
     const darkTypes = ['mechanism', 'about_us', 'next_steps'];
     const accentTypes = ['calculation', 'benefits'];
+    const emphasis = meta?.emphasisLevel === 'highlighted';
+    if (emphasis && !darkTypes.includes(type) && !accentTypes.includes(type)) {
+      return { bg: template.accentSlideBg, text: template.accentSlideText, layout: 'accent' };
+    }
     if (darkTypes.includes(type)) return { bg: template.darkSlideBg, text: template.darkSlideText, layout: 'dark' };
     if (accentTypes.includes(type)) return { bg: template.accentSlideBg, text: template.accentSlideText, layout: 'accent' };
     return { bg: template.lightSlideBg, text: template.lightSlideText, layout: 'light' };
@@ -61,10 +66,12 @@ export default function PreviewPage() {
       </div>
 
       {/* Slides */}
-      <div className="mx-auto max-w-[960px] py-8 px-4 space-y-8 print:space-y-0 print:p-0 print:max-w-none">
+      <div className="mx-auto max-w-[960px] py-8 px-4 space-y-10 print:space-y-0 print:p-0 print:max-w-none">
         {slides.map((slide, i) => {
-          const { bg, text, layout } = getSlideStyle(slide.slide_type);
+          const { bg, text, layout } = getSlideStyle(slide.slide_type, slide.metadata_json as Record<string, unknown>);
           const isCover = layout === 'cover';
+          const hasProductsMeta = slide.metadata_json && (slide.metadata_json as any).products;
+          const hasKitsMeta = slide.metadata_json && (slide.metadata_json as any).kits;
 
           return (
             <motion.div
@@ -105,9 +112,62 @@ export default function PreviewPage() {
                     {slide.title}
                   </h2>
 
-                  <div className={`mt-5 whitespace-pre-line leading-[1.7] ${isCover ? 'text-lg opacity-70 max-w-xl mx-auto' : 'text-[15px] opacity-80 max-w-2xl'}`}>
-                    {renderBody(slide.body, layout)}
-                  </div>
+                  {/* Product cards visual */}
+                  {hasProductsMeta ? (
+                    <div className="mt-6 grid grid-cols-2 gap-3 max-w-2xl lg:grid-cols-3">
+                      {((slide.metadata_json as any).products as any[]).slice(0, 6).map((p: any, pi: number) => (
+                        <div key={pi} className={`rounded-xl border p-3 space-y-1 ${layout === 'light' ? 'border-[hsl(220,13%,91%)] bg-[hsl(220,14%,96%)]' : 'border-[hsl(0,0%,100%)]/10 bg-[hsl(0,0%,100%)]/5'}`}>
+                          <div className="flex items-center gap-1.5">
+                            <Package className="h-3.5 w-3.5 opacity-50" />
+                            <span className="text-xs font-semibold truncate">{p.name}</span>
+                          </div>
+                          {p.description && <p className="text-[10px] opacity-60 line-clamp-2">{p.description}</p>}
+                          <div className="flex flex-wrap gap-1">
+                            {p.operations?.map((op: string, oi: number) => (
+                              <span key={oi} className={`inline-block rounded-md px-1.5 py-0.5 text-[8px] font-medium ${layout === 'light' ? 'bg-[hsl(38,92%,50%)]/10 text-[hsl(38,92%,50%)]' : 'bg-[hsl(0,0%,100%)]/10'}`}>{op}</span>
+                            ))}
+                            {p.caen?.map((c: string, ci: number) => (
+                              <span key={ci} className="inline-block rounded-md px-1.5 py-0.5 text-[8px] font-mono opacity-50">{c}</span>
+                            ))}
+                          </div>
+                          {p.score !== undefined && (
+                            <div className="flex items-center gap-1">
+                              <div className={`h-1 flex-1 rounded-full ${layout === 'light' ? 'bg-[hsl(220,13%,91%)]' : 'bg-[hsl(0,0%,100%)]/10'}`}>
+                                <div className="h-full rounded-full bg-[hsl(38,92%,50%)]" style={{ width: `${p.score * 100}%` }} />
+                              </div>
+                              <span className="text-[8px] font-mono opacity-40">{Math.round(p.score * 100)}%</span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : hasKitsMeta ? (
+                    <div className="mt-6 space-y-3 max-w-2xl">
+                      {((slide.metadata_json as any).kits as any[]).slice(0, 3).map((k: any, ki: number) => (
+                        <div key={ki} className={`rounded-xl border p-4 space-y-2 ${layout === 'light' ? 'border-[hsl(220,13%,91%)] bg-[hsl(220,14%,96%)]' : 'border-[hsl(0,0%,100%)]/10 bg-[hsl(0,0%,100%)]/5'}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Layers className="h-4 w-4 opacity-50" />
+                              <span className="text-sm font-semibold">{k.name}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className={`inline-block rounded-md px-2 py-0.5 text-[9px] font-medium ${layout === 'light' ? 'bg-[hsl(38,92%,50%)]/10 text-[hsl(38,92%,50%)]' : 'bg-[hsl(0,0%,100%)]/10'}`}>{k.complexity}</span>
+                              {k.score !== undefined && <span className="text-[9px] font-mono opacity-50">{Math.round(k.score * 100)}%</span>}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {k.components?.map((comp: string, ci: number) => (
+                              <span key={ci} className={`inline-block rounded-md px-1.5 py-0.5 text-[9px] ${layout === 'light' ? 'bg-[hsl(0,0%,100%)] border border-[hsl(220,13%,91%)]' : 'bg-[hsl(0,0%,100%)]/5'}`}>{comp}</span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className={`mt-5 whitespace-pre-line leading-[1.8] ${isCover ? 'text-lg opacity-70 max-w-xl mx-auto' : 'text-[15px] opacity-80 max-w-2xl'}`}>
+                      {renderBody(slide.body, layout)}
+                    </div>
+                  )}
 
                   {/* Cover footer */}
                   {isCover && company && (
@@ -183,10 +243,12 @@ function AccentSlideDecor() {
 function formatSlideType(type: string): string {
   const labels: Record<string, string> = {
     company_overview: 'Despre companie',
+    company_context: 'Context',
+    brief_interpretation: 'Solicitare',
     context: 'Context',
     mechanism: 'Mecanism',
     calculation: 'Oportunitate',
-    products: 'Produse',
+    products: 'Soluții',
     kits: 'Kituri',
     alternatives: 'Alternative',
     benefits: 'Beneficii',
@@ -197,17 +259,15 @@ function formatSlideType(type: string): string {
 }
 
 function renderBody(body: string, layout: string) {
-  // Highlight checkmarks and arrows in body text
   return body.split('\n').map((line, i) => {
     const isCheckmark = line.startsWith('✓');
     const isArrow = line.startsWith('▸');
-    const isBullet = line.startsWith('•');
     const isNumber = /^\d+\./.test(line.trim());
-    const isSubLine = line.startsWith('  ');
+    const isSubLine = line.startsWith('   ');
 
     if (isCheckmark) {
       return (
-        <span key={i} className="block">
+        <span key={i} className="block py-0.5">
           <span className={layout === 'accent' ? 'opacity-100' : 'text-[hsl(142,71%,45%)]'}>✓</span>
           {line.slice(1)}
         </span>
@@ -215,17 +275,20 @@ function renderBody(body: string, layout: string) {
     }
     if (isArrow) {
       return (
-        <span key={i} className={`block ${isSubLine ? '' : 'font-semibold'}`}>
+        <span key={i} className="block py-0.5 font-medium">
           <span className="text-[hsl(38,92%,50%)]">▸</span>
           {line.slice(1)}
         </span>
       );
     }
-    if (isSubLine && !isBullet) {
-      return <span key={i} className="block text-[13px] opacity-65">{line}</span>;
+    if (isSubLine) {
+      return <span key={i} className="block text-[13px] opacity-60 pl-4">{line.trim()}</span>;
     }
     if (isNumber) {
-      return <span key={i} className="block">{line}</span>;
+      return <span key={i} className="block py-0.5">{line}</span>;
+    }
+    if (line.startsWith('•')) {
+      return <span key={i} className="block py-0.5 pl-2">{line}</span>;
     }
     return <span key={i} className="block">{line}</span>;
   });
