@@ -20,6 +20,7 @@ import { getIndustryProfile } from '@/services/industryIntelligenceService';
 import { rankProducts, rankKits } from '@/services/solutionRankingService';
 import { generatePitchStrategy } from '@/services/pitchStrategyService';
 import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
+import BriefRulesPanel from '@/components/BriefRulesPanel';
 import { generatePresentation } from '@/lib/presentation-generator';
 import { presentationTemplates } from '@/lib/presentation-templates';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
@@ -353,6 +354,13 @@ export default function NewPresentationPage() {
                             </div>
                           )}
                           <EligibilityReasoningPanel result={briefAnalysis.eligibility} title="Verdict eligibilitate brief" />
+                          {briefAnalysis.brief_rules_matches && briefAnalysis.brief_rules_matches.length > 0 && (
+                            <BriefRulesPanel
+                              matches={briefAnalysis.brief_rules_matches}
+                              pitchLines={briefAnalysis.pitch_lines_from_rules}
+                              recommendedKits={briefAnalysis.recommended_kits_from_rules}
+                            />
+                          )}
                         </div>
                       )}
 

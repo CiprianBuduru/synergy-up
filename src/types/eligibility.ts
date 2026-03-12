@@ -45,4 +45,10 @@ export interface BriefAnalysisV2 {
   tone: string;
   eligibility: EligibilityResult;
   detected_intents: string[];
+  /** Matches from Brief Rules Engine */
+  brief_rules_matches?: import('./brief-rule').BriefRuleMatch[];
+  /** Kit recommendations from rules */
+  recommended_kits_from_rules?: string[];
+  /** Pitch lines from matched rules */
+  pitch_lines_from_rules?: string[];
 }

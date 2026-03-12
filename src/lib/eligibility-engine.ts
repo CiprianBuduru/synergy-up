@@ -6,3 +6,4 @@ export { checkEligibility, checkProductEligibility, AUTHORIZED_CAEN, OPERATIONS_
 export { analyzeBrief, PURPOSE_LABELS, detectPurpose, detectIntents } from '@/services/brief-analyzer';
 export { calculateOpportunity } from '@/services/opportunity';
 export { getRecommendedProducts, getRecommendedKits } from '@/services/recommendations';
+export { analyzeBriefWithRules, matchBriefRules, getAllBriefRules } from '@/services/briefRulesEngine';
