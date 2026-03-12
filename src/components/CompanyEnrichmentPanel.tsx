@@ -73,12 +73,15 @@ function getConfidenceLabel(confidence: number): string {
   return 'Încredere scăzută — date parțiale';
 }
 
-function getStatusBadge(status: EnrichmentStatus | string, hasOverrides: boolean) {
+function getStatusBadge(status: EnrichmentStatus | string, hasOverrides: boolean, isDemo: boolean) {
   if (hasOverrides) {
-    return { label: 'Manual Override', icon: Edit3, className: 'border-warning/30 text-warning bg-warning/5' };
+    return { label: 'Manual override', icon: Edit3, className: 'border-warning/30 text-warning bg-warning/5' };
+  }
+  if (isDemo) {
+    return { label: 'Demo data', icon: AlertTriangle, className: 'border-warning/30 text-warning bg-warning/5' };
   }
   switch (status) {
-    case 'verified': return { label: 'Verificat', icon: ShieldCheck, className: 'border-success/30 text-success bg-success/5' };
+    case 'verified': return { label: 'Verified source', icon: ShieldCheck, className: 'border-success/30 text-success bg-success/5' };
     case 'estimated': return { label: 'Estimat', icon: Eye, className: 'border-warning/30 text-warning bg-warning/5' };
     default: return { label: 'Necesită confirmare', icon: ShieldAlert, className: 'border-destructive/30 text-destructive bg-destructive/5' };
   }
@@ -295,7 +298,8 @@ export default function CompanyEnrichmentPanel({ company, enrichment, onUpdateEn
   const empMin = enrichment?.employee_count_min;
   const empMax = enrichment?.employee_count_max;
   const empEstimate = enrichment?.employee_count_estimate;
-  const statusBadge = getStatusBadge(enrichment?.enrichment_status || 'needs_confirmation', hasOverrides);
+  const isDemoData = enrichment?.sources_json?.includes('Introducere manuală') || enrichment?.sources_json?.includes('demo') || enrichment?.sources_json?.some(s => s.toLowerCase().includes('seed'));
+  const statusBadge = getStatusBadge(enrichment?.enrichment_status || 'needs_confirmation', hasOverrides, !!isDemoData);
   const StatusBadgeIcon = statusBadge.icon;
 
   return (
@@ -304,7 +308,7 @@ export default function CompanyEnrichmentPanel({ company, enrichment, onUpdateEn
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <CardTitle className="font-display text-base truncate">Date companie</CardTitle>
+            <CardTitle className="font-display text-base truncate">Verified Company Data</CardTitle>
             <Badge variant="outline" className={`gap-1 text-[10px] shrink-0 ${statusBadge.className}`}>
               <StatusBadgeIcon className="h-3 w-3" />
               {statusBadge.label}
@@ -362,7 +366,7 @@ export default function CompanyEnrichmentPanel({ company, enrichment, onUpdateEn
 
         {/* Main data fields */}
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date detectate</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Commercial Enrichment</p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <EnrichmentField
               icon={Building2} label="Denumire legală"
@@ -407,7 +411,7 @@ export default function CompanyEnrichmentPanel({ company, enrichment, onUpdateEn
             >
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">Angajați</span>
+                <span className="text-sm font-medium text-foreground">Număr mediu salariați din bilanț</span>
                 <span className="text-sm font-bold text-foreground">
                   {isOverridden('employee_count_estimate')
                     ? overrides['employee_count_estimate']
@@ -420,7 +424,7 @@ export default function CompanyEnrichmentPanel({ company, enrichment, onUpdateEn
                 )}
                 {isOverridden('employee_count_estimate') && (
                   <Badge variant="outline" className="text-[10px] border-warning/30 text-warning bg-warning/5 gap-0.5">
-                    <Edit3 className="h-2.5 w-2.5" /> manual
+                    <Edit3 className="h-2.5 w-2.5" /> Manual override
                   </Badge>
                 )}
               </div>
@@ -509,7 +513,7 @@ export default function CompanyEnrichmentPanel({ company, enrichment, onUpdateEn
                 <p className="text-sm text-foreground leading-relaxed">
                   {isOverridden('public_summary') ? overrides['public_summary'] : enrichment.public_summary}
                   {isOverridden('public_summary') && (
-                    <Badge className="ml-1 h-4 text-[8px] px-1 bg-warning/20 text-warning border-0 align-middle">manual</Badge>
+                    <Badge className="ml-1 h-4 text-[8px] px-1 bg-warning/20 text-warning border-0 align-middle">Manual override</Badge>
                   )}
                 </p>
               )}
@@ -682,7 +686,7 @@ function EnrichmentField({ icon: Icon, label, value, isOverridden, isEditing, st
         <Icon className="h-3 w-3 text-muted-foreground" />
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</span>
         {isOverridden && (
-          <Badge className="h-4 text-[8px] px-1 bg-warning/20 text-warning border-0">manual</Badge>
+          <Badge className="h-4 text-[8px] px-1 bg-warning/20 text-warning border-0">Manual override</Badge>
         )}
         {!isOverridden && status === 'estimated' && (
           <div className="h-1.5 w-1.5 rounded-full bg-warning" title="Estimat" />

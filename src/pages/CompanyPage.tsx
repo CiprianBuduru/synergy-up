@@ -67,7 +67,7 @@ export default function CompanyPage() {
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">Informații companie</CardTitle>
+                <CardTitle className="text-base">Verified Company Data</CardTitle>
                 <Button variant="outline" size="sm" onClick={() => editing ? handleSave() : setEditing(true)}>
                   {editing ? 'Salvează' : 'Editează'}
                 </Button>
