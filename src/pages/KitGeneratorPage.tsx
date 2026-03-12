@@ -93,7 +93,7 @@ export default function KitGeneratorPage() {
             <p className="text-sm text-muted-foreground">Recomandă kituri eligibile pe baza companiei, brief-ului și complexității dorite</p>
           </div>
           <Badge variant="outline" className="gap-1.5 px-3 py-1.5 text-sm">
-            <Package className="h-4 w-4" /> {seedKits.length} kituri disponibile
+            <Package className="h-4 w-4" /> {data.kits.length} kituri disponibile
           </Badge>
         </div>
 
