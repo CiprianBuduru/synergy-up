@@ -96,12 +96,12 @@ export async function addTimelineEvent(
   eventLabel: string,
   metadata?: Record<string, unknown>,
 ): Promise<void> {
-  await supabase.from('company_timeline_events').insert({
+  await supabase.from('company_timeline_events').insert([{
     company_id: companyId,
     event_type: eventType,
     event_label: eventLabel,
-    metadata_json: metadata || {},
-  });
+    metadata_json: (metadata || {}) as any,
+  }]);
 }
 
 // ─── Aggregate stats ────────────────────────────────────────
