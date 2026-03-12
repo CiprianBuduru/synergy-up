@@ -21,7 +21,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 export default function DashboardPage() {
   const { companies, presentations, calculations } = useData();
   const [search, setSearch] = useState('');
-  const [salesStats, setSalesStats] = useState({ total_prospects: 0, presentations_sent: 0, interested: 0, won: 0 });
+  const [salesStats, setSalesStats] = useState({ total_prospects: 0, presentations_sent: 0, interested: 0, documents_sent: 0, contracts_signed: 0, active_clients: 0, won: 0 });
 
   useEffect(() => {
     fetchSalesStats().then(setSalesStats);
