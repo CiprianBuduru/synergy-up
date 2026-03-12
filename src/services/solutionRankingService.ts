@@ -1,7 +1,7 @@
 // ─── Solution Ranking Engine ────────────────────────────────────────
 // Calculates composite scores for products and kits based on multiple factors.
 
-import type { Product, Kit, EligibilityResult } from '@/types';
+import type { Product, Kit } from '@/types';
 import type { DetectedIntent, IntentType } from './intentDetectionService';
 import type { CompanySignals } from './companySignalsService';
 import { getIndustryProfile } from './industryIntelligenceService';
@@ -24,14 +24,16 @@ export interface ScoreFactors {
   eligibility_strength: number; // 0-1
   department_relevance: number; // 0-1
   utility_score: number;    // 0-1
+  historical_success: number; // -1 to 1
 }
 
 const WEIGHTS = {
-  industry_match: 0.3,
-  intent_match: 0.3,
+  industry_match: 0.25,
+  intent_match: 0.25,
   eligibility_strength: 0.2,
   department_relevance: 0.1,
   utility_score: 0.1,
+  historical_success: 0.1,
 };
 
 // ═══════════ INTENT → PRODUCT TYPE MAP ═══════════
@@ -101,29 +103,35 @@ function computeUtility(product: Product, signals: CompanySignals): number {
   return Math.min(score, 1.0);
 }
 
+import type { HistoricalBoost } from './recommendationLearningService';
+
 export function rankProducts(
   products: Product[],
   industry: string,
   department: string,
   intent: DetectedIntent,
   signals: CompanySignals,
+  historicalBoosts?: HistoricalBoost | null,
 ): RankedProduct[] {
   return products
     .filter(p => p.active)
     .map(product => {
+      const histScore = historicalBoosts?.product_boosts?.[product.name] ?? 0;
       const factors: ScoreFactors = {
         industry_match: computeIndustryMatch(product, industry),
         intent_match: computeIntentMatch(product, intent),
         eligibility_strength: computeEligibilityStrength(product),
         department_relevance: computeDepartmentRelevance(product, department),
         utility_score: computeUtility(product, signals),
+        historical_success: (histScore + 1) / 2, // normalize -1..1 to 0..1
       };
       const score =
         factors.industry_match * WEIGHTS.industry_match +
         factors.intent_match * WEIGHTS.intent_match +
         factors.eligibility_strength * WEIGHTS.eligibility_strength +
         factors.department_relevance * WEIGHTS.department_relevance +
-        factors.utility_score * WEIGHTS.utility_score;
+        factors.utility_score * WEIGHTS.utility_score +
+        factors.historical_success * WEIGHTS.historical_success;
 
       return { product, score: Math.round(score * 100) / 100, factors };
     })
@@ -152,6 +160,7 @@ export function rankKits(
   department: string,
   intent: DetectedIntent,
   signals: CompanySignals,
+  historicalBoosts?: HistoricalBoost | null,
 ): RankedKit[] {
   const profile = getIndustryProfile(industry);
   const affinityCategories = INTENT_KIT_AFFINITY[intent.primary_intent] || ['Corporate'];
@@ -159,6 +168,7 @@ export function rankKits(
   return kits
     .filter(k => k.active)
     .map(kit => {
+      const histScore = historicalBoosts?.kit_boosts?.[kit.name] ?? 0;
       const factors: ScoreFactors = {
         industry_match: profile.suggested_kit_categories.includes(kit.category) ? 1.0
           : kit.suggested_industries_json.some(i => i === 'Toate industriile') ? 0.5 : 0.2,
@@ -170,6 +180,7 @@ export function rankKits(
           department.toLowerCase().includes(d.toLowerCase()) || d.toLowerCase().includes(department.toLowerCase())
         ) ? 1.0 : 0.2,
         utility_score: computeKitUtility(kit, signals),
+        historical_success: (histScore + 1) / 2,
       };
 
       const score =
@@ -177,7 +188,8 @@ export function rankKits(
         factors.intent_match * WEIGHTS.intent_match +
         factors.eligibility_strength * WEIGHTS.eligibility_strength +
         factors.department_relevance * WEIGHTS.department_relevance +
-        factors.utility_score * WEIGHTS.utility_score;
+        factors.utility_score * WEIGHTS.utility_score +
+        factors.historical_success * WEIGHTS.historical_success;
 
       return { kit, score: Math.round(score * 100) / 100, factors };
     })

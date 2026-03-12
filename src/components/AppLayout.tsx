@@ -2,7 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useData } from '@/contexts/DataContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, Building2, FileText, LogOut, Package, ShoppingBag } from 'lucide-react';
+import { LayoutDashboard, Building2, FileText, LogOut, Package, ShoppingBag, Brain } from 'lucide-react';
 import SyncStatusIndicator from '@/components/SyncStatusIndicator';
 import DataLoadingScreen from '@/components/DataLoadingScreen';
 
@@ -18,6 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { to: '/new', icon: FileText, label: 'Nouă' },
     { to: '/products', icon: ShoppingBag, label: 'Produse' },
     { to: '/kits', icon: Package, label: 'Kit Generator' },
+    { to: '/knowledge', icon: Brain, label: 'Knowledge' },
   ];
 
   return (

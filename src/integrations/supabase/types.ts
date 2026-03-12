@@ -342,6 +342,63 @@ export type Database = {
           },
         ]
       }
+      interaction_memories: {
+        Row: {
+          client_response: string
+          company_id: string
+          created_at: string
+          id: string
+          interaction_type: string
+          kits_recommended: Json
+          metadata_json: Json
+          outcome: string
+          pitch_strategy_used: string
+          presentation_id: string | null
+          products_recommended: Json
+        }
+        Insert: {
+          client_response?: string
+          company_id: string
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          kits_recommended?: Json
+          metadata_json?: Json
+          outcome?: string
+          pitch_strategy_used?: string
+          presentation_id?: string | null
+          products_recommended?: Json
+        }
+        Update: {
+          client_response?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          interaction_type?: string
+          kits_recommended?: Json
+          metadata_json?: Json
+          outcome?: string
+          pitch_strategy_used?: string
+          presentation_id?: string | null
+          products_recommended?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "interaction_memories_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "interaction_memories_presentation_id_fkey"
+            columns: ["presentation_id"]
+            isOneToOne: false
+            referencedRelation: "presentations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kits: {
         Row: {
           active: boolean
@@ -536,6 +593,51 @@ export type Database = {
           usable_in_kits?: boolean
         }
         Relationships: []
+      }
+      response_classifications: {
+        Row: {
+          classification: string
+          company_id: string
+          created_at: string
+          id: string
+          interaction_id: string | null
+          metadata_json: Json
+          reason: string
+        }
+        Insert: {
+          classification?: string
+          company_id: string
+          created_at?: string
+          id?: string
+          interaction_id?: string | null
+          metadata_json?: Json
+          reason?: string
+        }
+        Update: {
+          classification?: string
+          company_id?: string
+          created_at?: string
+          id?: string
+          interaction_id?: string | null
+          metadata_json?: Json
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "response_classifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "response_classifications_interaction_id_fkey"
+            columns: ["interaction_id"]
+            isOneToOne: false
+            referencedRelation: "interaction_memories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       slides: {
         Row: {
