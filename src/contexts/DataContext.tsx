@@ -35,6 +35,7 @@ interface DataContextType {
   addBrief: (b: Omit<Brief, 'id' | 'created_at'>) => Promise<Brief | null>;
   addCalculation: (c: Omit<CalculationSnapshot, 'id' | 'created_at'>) => Promise<CalculationSnapshot | null>;
   addEnrichment: (e: Omit<CompanyEnrichment, 'id' | 'created_at'>) => Promise<CompanyEnrichment | null>;
+  updateEnrichment: (e: CompanyEnrichment) => Promise<void>;
   addProduct: (p: Omit<Product, 'id'>) => Promise<Product | null>;
   updateProduct: (p: Product) => Promise<void>;
 
