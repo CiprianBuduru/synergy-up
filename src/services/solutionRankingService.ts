@@ -24,14 +24,16 @@ export interface ScoreFactors {
   eligibility_strength: number; // 0-1
   department_relevance: number; // 0-1
   utility_score: number;    // 0-1
+  historical_success: number; // -1 to 1
 }
 
 const WEIGHTS = {
-  industry_match: 0.3,
-  intent_match: 0.3,
+  industry_match: 0.25,
+  intent_match: 0.25,
   eligibility_strength: 0.2,
   department_relevance: 0.1,
   utility_score: 0.1,
+  historical_success: 0.1,
 };
 
 // ═══════════ INTENT → PRODUCT TYPE MAP ═══════════
