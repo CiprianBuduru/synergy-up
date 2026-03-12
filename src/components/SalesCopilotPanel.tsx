@@ -301,8 +301,16 @@ export default function SalesCopilotPanel({ company, enrichment }: Props) {
               <Send className="h-3.5 w-3.5" /> Marchează Trimis
             </Button>
             <Button variant="outline" size="sm" className="text-xs justify-start gap-1.5"
-              onClick={() => handleStatusChange('waiting_response')}>
-              <Clock className="h-3.5 w-3.5" /> Follow-up
+              onClick={() => handleStatusChange('interested')}>
+              <Target className="h-3.5 w-3.5" /> Marchează Interesat
+            </Button>
+            <Button variant="outline" size="sm" className="text-xs justify-start gap-1.5"
+              onClick={() => handleStatusChange('documents_sent')}>
+              <Send className="h-3.5 w-3.5" /> Docs Trimise
+            </Button>
+            <Button variant="outline" size="sm" className="text-xs justify-start gap-1.5"
+              onClick={() => handleStatusChange('contract_signed')}>
+              <Zap className="h-3.5 w-3.5" /> Contract Semnat
             </Button>
           </div>
         </CardContent>
