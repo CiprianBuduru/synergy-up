@@ -3,11 +3,12 @@ import { useData } from '@/contexts/DataContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { motion } from 'framer-motion';
-import { Plus, Search, Building2, FileText, TrendingUp, Zap, ArrowUpRight, Users } from 'lucide-react';
-import { useState } from 'react';
+import { Plus, Search, Building2, FileText, TrendingUp, Zap, ArrowUpRight, Users, MessageSquare, Mail, Send, Target } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import AppLayout from '@/components/AppLayout';
+import { fetchSalesStats } from '@/services/followUpService';
 
 const statusConfig: Record<string, { label: string; className: string }> = {
   draft: { label: 'Ciornă', className: 'bg-muted text-muted-foreground' },
@@ -20,6 +21,11 @@ const statusConfig: Record<string, { label: string; className: string }> = {
 export default function DashboardPage() {
   const { companies, presentations, calculations } = useData();
   const [search, setSearch] = useState('');
+  const [salesStats, setSalesStats] = useState({ total_prospects: 0, presentations_sent: 0, interested: 0, won: 0 });
+
+  useEffect(() => {
+    fetchSalesStats().then(setSalesStats);
+  }, []);
 
   const filtered = companies.filter(c =>
     c.company_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -58,6 +64,33 @@ export default function DashboardPage() {
                     </div>
                     <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color}`}>
                       <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Sales Insights */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { icon: Target, label: 'Prospecți', value: salesStats.total_prospects, color: 'from-primary/10 to-primary/5', iconColor: 'text-primary' },
+            { icon: Send, label: 'Prezentări trimise', value: salesStats.presentations_sent, color: 'from-info/10 to-info/5', iconColor: 'text-info' },
+            { icon: Users, label: 'Interesați', value: salesStats.interested, color: 'from-emerald-500/10 to-emerald-500/5', iconColor: 'text-emerald-600' },
+            { icon: Zap, label: 'Câștigate', value: salesStats.won, color: 'from-accent/10 to-accent/5', iconColor: 'text-accent' },
+          ].map((stat, i) => (
+            <motion.div key={stat.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 + i * 0.06 }}>
+              <Card className="border-0 shadow-sm overflow-hidden">
+                <div className={`h-0.5 bg-gradient-to-r ${stat.color}`} />
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{stat.label}</p>
+                      <p className="mt-1 font-display text-xl font-bold text-foreground">{stat.value}</p>
+                    </div>
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br ${stat.color}`}>
+                      <stat.icon className={`h-4 w-4 ${stat.iconColor}`} />
                     </div>
                   </div>
                 </CardContent>

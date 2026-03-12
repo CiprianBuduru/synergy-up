@@ -272,6 +272,76 @@ export type Database = {
           },
         ]
       }
+      company_follow_ups: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          notes: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          notes?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          notes?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_follow_ups_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_timeline_events: {
+        Row: {
+          company_id: string
+          created_at: string
+          event_label: string
+          event_type: string
+          id: string
+          metadata_json: Json
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          event_label?: string
+          event_type?: string
+          id?: string
+          metadata_json?: Json
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          event_label?: string
+          event_type?: string
+          id?: string
+          metadata_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_timeline_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kits: {
         Row: {
           active: boolean
