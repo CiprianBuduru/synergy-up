@@ -170,11 +170,19 @@ export default function NewPresentationPage() {
     if (!rawEmail.trim()) return;
     const result = parseEmailBrief(rawEmail);
     setParsedEmail(result);
+    setEmailFlowStatus(['parsed']);
+  };
+
+  const handleReparse = () => {
+    if (!rawEmail.trim()) return;
+    const result = parseEmailBrief(rawEmail);
+    setParsedEmail(result);
+    setEmailFlowStatus(['parsed']);
   };
 
   const handleUseEmailAsBrief = async () => {
     if (!parsedEmail) return;
-    // Auto-create company if extracted and not selected
+    // Step 1: Auto-create company if extracted and not selected
     if (!selectedCompanyId && parsedEmail.company_name) {
       const newCompany = await data.addCompany({
         company_name: parsedEmail.company_name,
@@ -193,8 +201,19 @@ export default function NewPresentationPage() {
       });
       if (newCompany) setSelectedCompanyId(newCompany.id);
     }
-    // Set brief text from cleaned body and move to step 2
-    setBriefText(parsedEmail.cleaned_body);
+    setEmailFlowStatus(prev => [...prev, 'brief_created']);
+
+    // Step 2: Set brief text and auto-analyze
+    const cleanedText = parsedEmail.cleaned_body;
+    setBriefText(cleanedText);
+
+    // Step 3: Run analysis immediately
+    const analysis = analyzeBrief(cleanedText);
+    setBriefAnalysis(analysis);
+    setEmailFlowStatus(prev => [...prev, 'rules_matched', 'recommendations_generated']);
+    setTone(analysis.tone as PresentationTone);
+
+    // Move to step 2 with analysis already done
     setStep(2);
   };
 
