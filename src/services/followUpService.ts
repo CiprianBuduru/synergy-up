@@ -8,6 +8,10 @@ export type FollowUpStatus =
   | 'presentation_sent'
   | 'waiting_response'
   | 'interested'
+  | 'documents_sent'
+  | 'contract_in_progress'
+  | 'contract_signed'
+  | 'active_client'
   | 'negotiation'
   | 'won'
   | 'lost';
@@ -17,8 +21,12 @@ export const FOLLOW_UP_STATUS_CONFIG: Record<FollowUpStatus, { label: string; co
   presentation_sent: { label: 'Prezentare trimisă', color: 'bg-blue-50 text-blue-700 border border-blue-200', icon: '📤' },
   waiting_response: { label: 'Așteptăm răspuns', color: 'bg-amber-50 text-amber-700 border border-amber-200', icon: '⏳' },
   interested: { label: 'Interesat', color: 'bg-emerald-50 text-emerald-700 border border-emerald-200', icon: '✅' },
+  documents_sent: { label: 'Documente trimise', color: 'bg-indigo-50 text-indigo-700 border border-indigo-200', icon: '📄' },
+  contract_in_progress: { label: 'Contract în lucru', color: 'bg-orange-50 text-orange-700 border border-orange-200', icon: '📝' },
+  contract_signed: { label: 'Contract semnat', color: 'bg-teal-50 text-teal-700 border border-teal-200', icon: '✍️' },
+  active_client: { label: 'Client activ', color: 'bg-green-50 text-green-800 border border-green-200', icon: '🏆' },
   negotiation: { label: 'Negociere', color: 'bg-purple-50 text-purple-700 border border-purple-200', icon: '🤝' },
-  won: { label: 'Câștigat', color: 'bg-green-50 text-green-800 border border-green-200', icon: '🏆' },
+  won: { label: 'Câștigat', color: 'bg-green-50 text-green-800 border border-green-200', icon: '🎉' },
   lost: { label: 'Pierdut', color: 'bg-red-50 text-red-700 border border-red-200', icon: '❌' },
 };
 
@@ -110,17 +118,23 @@ export async function fetchSalesStats(): Promise<{
   total_prospects: number;
   presentations_sent: number;
   interested: number;
+  documents_sent: number;
+  contracts_signed: number;
+  active_clients: number;
   won: number;
 }> {
   const { data, error } = await supabase
     .from('company_follow_ups')
     .select('status');
-  if (error || !data) return { total_prospects: 0, presentations_sent: 0, interested: 0, won: 0 };
+  if (error || !data) return { total_prospects: 0, presentations_sent: 0, interested: 0, documents_sent: 0, contracts_signed: 0, active_clients: 0, won: 0 };
 
   return {
     total_prospects: data.length,
     presentations_sent: data.filter(d => d.status !== 'prospect').length,
-    interested: data.filter(d => ['interested', 'negotiation', 'won'].includes(d.status)).length,
+    interested: data.filter(d => ['interested', 'negotiation', 'documents_sent', 'contract_in_progress', 'contract_signed', 'active_client', 'won'].includes(d.status)).length,
+    documents_sent: data.filter(d => ['documents_sent', 'contract_in_progress', 'contract_signed', 'active_client'].includes(d.status)).length,
+    contracts_signed: data.filter(d => ['contract_signed', 'active_client'].includes(d.status)).length,
+    active_clients: data.filter(d => d.status === 'active_client').length,
     won: data.filter(d => d.status === 'won').length,
   };
 }

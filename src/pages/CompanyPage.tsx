@@ -3,24 +3,39 @@ import { useData } from '@/contexts/DataContext';
 import AppLayout from '@/components/AppLayout';
 import CompanyEnrichmentPanel from '@/components/CompanyEnrichmentPanel';
 import SalesCopilotPanel from '@/components/SalesCopilotPanel';
+import DocumentPackPanel from '@/components/DocumentPackPanel';
+import OnboardingChecklistPanel from '@/components/OnboardingChecklistPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import OpportunityCalculator from '@/components/OpportunityCalculator';
+import { analyzeCompanySignals } from '@/services/companySignalsService';
+import { detectIntent } from '@/services/intentDetectionService';
+import { generateOpportunityInsights } from '@/services/opportunityInsightsService';
 
 export default function CompanyPage() {
   const { id } = useParams<{ id: string }>();
-  const { getCompany, getEnrichment, updateCompany } = useData();
+  const { getCompany, getEnrichment, updateCompany, calculations, briefs } = useData();
   const company = getCompany(id || '');
   const enrichment = getEnrichment(id || '');
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState(company || {} as any);
+
+  const insights = useMemo(() => {
+    if (!company) return null;
+    const calc = calculations.find(c => c.company_id === company.id) || null;
+    const brief = briefs.find(b => b.company_id === company.id) || null;
+    const signals = analyzeCompanySignals(company, enrichment, brief?.raw_brief);
+    const intent = brief?.raw_brief ? detectIntent(brief.raw_brief) : null;
+    const industry = enrichment?.industry_label || company.industry || '';
+    return generateOpportunityInsights(enrichment, signals, intent, industry, calc);
+  }, [company, enrichment, calculations, briefs]);
 
   if (!company) {
     return <AppLayout><p className="text-muted-foreground">Compania nu a fost găsită.</p></AppLayout>;
@@ -101,8 +116,10 @@ export default function CompanyPage() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             <OpportunityCalculator companyId={company.id} />
+            <OnboardingChecklistPanel companyId={company.id} />
+            <DocumentPackPanel company={company} enrichment={enrichment || null} insights={insights} />
             <SalesCopilotPanel company={company} enrichment={enrichment || null} />
           </div>
         </div>
