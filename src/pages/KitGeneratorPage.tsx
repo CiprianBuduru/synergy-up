@@ -51,7 +51,7 @@ export default function KitGeneratorPage() {
       complexity: (complexity && complexity !== 'all' ? complexity : undefined) as KitComplexity | undefined,
       eligibilityVerdict: analysis?.eligibility.verdict,
       companyName: company.company_name,
-    });
+    }, data.kits);
     setRecommendations(results);
     setHasGenerated(true);
   };
