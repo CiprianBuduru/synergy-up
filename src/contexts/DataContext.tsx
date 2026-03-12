@@ -377,7 +377,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       status, isLoading: status === 'loading', isDemo,
       addCompany, updateCompany,
       addPresentation, updatePresentation, setSlides,
-      addBrief, addCalculation, addEnrichment, addProduct, updateProduct,
+      addBrief, addCalculation, addEnrichment, updateEnrichment, addProduct, updateProduct,
       getCompany, getEnrichment, getPresentation, getPresentationSlides,
       refresh: loadData,
     }}>

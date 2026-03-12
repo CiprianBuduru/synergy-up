@@ -2,7 +2,6 @@
 // Re-exports from services. Core logic is in src/services/.
 
 import type { Kit, KitComplexity, EligibilityStatus, DetectedPurpose } from '@/types';
-import { seedKits } from '@/data/seed';
 
 export interface KitRecommendation {
   kit: Kit;
@@ -60,13 +59,14 @@ function normalizeDepartment(dept: string): string[] {
   return ['Management', 'HR'];
 }
 
-export function recommendKits(input: KitGeneratorInput): KitRecommendation[] {
+/** Recommend kits from a provided kit catalog */
+export function recommendKits(input: KitGeneratorInput, allKits: Kit[]): KitRecommendation[] {
   const { industry, department, briefText, purpose, detectedPurpose, complexity, eligibilityVerdict } = input;
   const lower = briefText.toLowerCase();
   const normalizedDepts = normalizeDepartment(department);
   const preferredCategories = detectedPurpose ? (purposeKitCategories[detectedPurpose] || ['Corporate']) : ['Corporate', 'HR'];
 
-  const scored: KitRecommendation[] = seedKits
+  const scored: KitRecommendation[] = allKits
     .filter(k => k.active)
     .map(kit => {
       let score = 0;
@@ -102,20 +102,20 @@ export function recommendKits(input: KitGeneratorInput): KitRecommendation[] {
   return scored.slice(0, 5);
 }
 
-export function getKitsByComplexity(complexity: KitComplexity): Kit[] {
-  return seedKits.filter(k => k.active && k.complexity === complexity);
+export function getKitsByComplexity(allKits: Kit[], complexity: KitComplexity): Kit[] {
+  return allKits.filter(k => k.active && k.complexity === complexity);
 }
 
-export function getAlternativeKits(briefText: string): Kit[] {
+export function getAlternativeKits(allKits: Kit[], briefText: string): Kit[] {
   const lower = briefText.toLowerCase();
-  return seedKits.filter(k => k.active && k.is_alternative && k.alternative_for.some(kw => lower.includes(kw)));
+  return allKits.filter(k => k.active && k.is_alternative && k.alternative_for.some(kw => lower.includes(kw)));
 }
 
-export function getKitsByDepartment(department: string): Kit[] {
+export function getKitsByDepartment(allKits: Kit[], department: string): Kit[] {
   const normalized = normalizeDepartment(department);
-  return seedKits.filter(k => k.active && k.target_departments.some(td => normalized.some(nd => td.toLowerCase().includes(nd.toLowerCase()))));
+  return allKits.filter(k => k.active && k.target_departments.some(td => normalized.some(nd => td.toLowerCase().includes(nd.toLowerCase()))));
 }
 
-export function getKitsByIndustry(industry: string): Kit[] {
-  return seedKits.filter(k => k.active && k.suggested_industries_json.some(i => i === 'Toate industriile' || i.toLowerCase().includes(industry.toLowerCase().slice(0, 5)) || industry.toLowerCase().includes(i.toLowerCase().slice(0, 5))));
+export function getKitsByIndustry(allKits: Kit[], industry: string): Kit[] {
+  return allKits.filter(k => k.active && k.suggested_industries_json.some(i => i === 'Toate industriile' || i.toLowerCase().includes(industry.toLowerCase().slice(0, 5)) || industry.toLowerCase().includes(i.toLowerCase().slice(0, 5))));
 }
