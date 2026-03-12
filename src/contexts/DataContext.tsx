@@ -35,6 +35,7 @@ interface DataContextType {
   addBrief: (b: Omit<Brief, 'id' | 'created_at'>) => Promise<Brief | null>;
   addCalculation: (c: Omit<CalculationSnapshot, 'id' | 'created_at'>) => Promise<CalculationSnapshot | null>;
   addEnrichment: (e: Omit<CompanyEnrichment, 'id' | 'created_at'>) => Promise<CompanyEnrichment | null>;
+  updateEnrichment: (e: CompanyEnrichment) => Promise<void>;
   addProduct: (p: Omit<Product, 'id'>) => Promise<Product | null>;
   updateProduct: (p: Product) => Promise<void>;
 
@@ -326,6 +327,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     });
   }, [isDemo, withSaving]);
 
+  const updateEnrichment = useCallback(async (e: CompanyEnrichment) => {
+    if (isDemo) {
+      setEnrichments(prev => prev.map(x => x.id === e.id ? e : x));
+      return;
+    }
+    return withSaving(async () => {
+      const { error } = await db.updateEnrichment(e.id, e);
+      if (error) throw error;
+      setEnrichments(prev => prev.map(x => x.id === e.id ? e : x));
+    });
+  }, [isDemo, withSaving]);
+
   const addProduct = useCallback(async (p: Omit<Product, 'id'>) => {
     if (isDemo) {
       const newP = { ...p, id: crypto.randomUUID() } as Product;
@@ -364,7 +377,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       status, isLoading: status === 'loading', isDemo,
       addCompany, updateCompany,
       addPresentation, updatePresentation, setSlides,
-      addBrief, addCalculation, addEnrichment, addProduct, updateProduct,
+      addBrief, addCalculation, addEnrichment, updateEnrichment, addProduct, updateProduct,
       getCompany, getEnrichment, getPresentation, getPresentationSlides,
       refresh: loadData,
     }}>

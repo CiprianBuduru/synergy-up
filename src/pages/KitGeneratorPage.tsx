@@ -15,7 +15,6 @@ import { Package, Sparkles, ShieldCheck, Wrench, FileCode, AlertTriangle, CheckC
 import { useData } from '@/contexts/DataContext';
 import { recommendKits, kitTemplates, type KitRecommendation } from '@/lib/kit-generator';
 import { analyzeBrief } from '@/lib/eligibility-engine';
-import { seedKits } from '@/data/seed';
 import EligibilityBadge from '@/components/EligibilityBadge';
 import type { Kit, KitComplexity } from '@/types';
 
@@ -53,25 +52,25 @@ export default function KitGeneratorPage() {
       complexity: (complexity && complexity !== 'all' ? complexity : undefined) as KitComplexity | undefined,
       eligibilityVerdict: analysis?.eligibility.verdict,
       companyName: company.company_name,
-    });
+    }, data.kits);
     setRecommendations(results);
     setHasGenerated(true);
   };
 
   const allDepartments = useMemo(() => {
     const deps = new Set<string>();
-    seedKits.forEach(k => k.target_departments.forEach(d => deps.add(d)));
+    data.kits.forEach(k => k.target_departments.forEach(d => deps.add(d)));
     return [...deps].sort();
-  }, []);
+  }, [data.kits]);
 
   const allIndustries = useMemo(() => {
     const inds = new Set<string>();
-    seedKits.forEach(k => k.suggested_industries_json.forEach(i => inds.add(i)));
+    data.kits.forEach(k => k.suggested_industries_json.forEach(i => inds.add(i)));
     return [...inds].sort();
-  }, []);
+  }, [data.kits]);
 
   const filteredCatalog = useMemo(() => {
-    return seedKits.filter(k => {
+    return data.kits.filter(k => {
       if (!k.active) return false;
       if (catalogFilter !== 'all' && k.complexity !== catalogFilter && k.category !== catalogFilter) return false;
       if (catalogDeptFilter !== 'all' && !k.target_departments.includes(catalogDeptFilter)) return false;
@@ -82,9 +81,9 @@ export default function KitGeneratorPage() {
       }
       return true;
     });
-  }, [catalogFilter, catalogSearch, catalogDeptFilter, catalogIndustryFilter]);
+  }, [data.kits, catalogFilter, catalogSearch, catalogDeptFilter, catalogIndustryFilter]);
 
-  const categories = [...new Set(seedKits.map(k => k.category))];
+  const categories = [...new Set(data.kits.map(k => k.category))];
 
   return (
     <AppLayout>
@@ -95,7 +94,7 @@ export default function KitGeneratorPage() {
             <p className="text-sm text-muted-foreground">Recomandă kituri eligibile pe baza companiei, brief-ului și complexității dorite</p>
           </div>
           <Badge variant="outline" className="gap-1.5 px-3 py-1.5 text-sm">
-            <Package className="h-4 w-4" /> {seedKits.length} kituri disponibile
+            <Package className="h-4 w-4" /> {data.kits.length} kituri disponibile
           </Badge>
         </div>
 
@@ -121,7 +120,7 @@ export default function KitGeneratorPage() {
         <Tabs defaultValue="generator" className="space-y-4">
           <TabsList className="bg-muted/50">
             <TabsTrigger value="generator" className="gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Generator</TabsTrigger>
-            <TabsTrigger value="catalog" className="gap-1.5"><Package className="h-3.5 w-3.5" /> Catalog ({seedKits.length})</TabsTrigger>
+            <TabsTrigger value="catalog" className="gap-1.5"><Package className="h-3.5 w-3.5" /> Catalog ({data.kits.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="generator" className="space-y-6">
