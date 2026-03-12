@@ -119,7 +119,7 @@ export default function KitGeneratorPage() {
         <Tabs defaultValue="generator" className="space-y-4">
           <TabsList className="bg-muted/50">
             <TabsTrigger value="generator" className="gap-1.5"><Sparkles className="h-3.5 w-3.5" /> Generator</TabsTrigger>
-            <TabsTrigger value="catalog" className="gap-1.5"><Package className="h-3.5 w-3.5" /> Catalog ({seedKits.length})</TabsTrigger>
+            <TabsTrigger value="catalog" className="gap-1.5"><Package className="h-3.5 w-3.5" /> Catalog ({data.kits.length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value="generator" className="space-y-6">
