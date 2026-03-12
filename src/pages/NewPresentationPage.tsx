@@ -432,6 +432,21 @@ export default function NewPresentationPage() {
 
           {step === 2 && (
             <motion.div key="s2" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
+              {/* Persistent feedback after Use this as Brief */}
+              {emailFlowStatus.includes('brief_created') && (
+                <div className="flex items-center gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Brief created from email
+                  </div>
+                  {emailFlowStatus.includes('rules_matched') && (
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Analysis updated
+                    </div>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
                 <div className="lg:col-span-3">
                   <Card className="border-0 shadow-md">
