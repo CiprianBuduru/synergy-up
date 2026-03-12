@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, Plus, Users, Brain } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, Plus, Users, Brain, Mail } from 'lucide-react';
 import { analyzeBrief } from '@/lib/eligibility-engine';
 import { detectIntent, INTENT_LABELS } from '@/services/intentDetectionService';
 import { analyzeCompanySignals } from '@/services/companySignalsService';
@@ -21,10 +21,12 @@ import { rankProducts, rankKits } from '@/services/solutionRankingService';
 import { generatePitchStrategy } from '@/services/pitchStrategyService';
 import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
 import BriefRulesPanel from '@/components/BriefRulesPanel';
+import ExtractedBriefPanel from '@/components/ExtractedBriefPanel';
 import { generatePresentation } from '@/lib/presentation-generator';
 import { presentationTemplates } from '@/lib/presentation-templates';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
 import EligibilityBadge from '@/components/EligibilityBadge';
+import { parseEmailBrief, type ParsedEmailBrief } from '@/services/emailBriefParserService';
 import type { PresentationTone, Company } from '@/types';
 
 export default function NewPresentationPage() {
