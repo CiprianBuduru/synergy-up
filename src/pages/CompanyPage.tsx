@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useData } from '@/contexts/DataContext';
 import AppLayout from '@/components/AppLayout';
 import CompanyEnrichmentPanel from '@/components/CompanyEnrichmentPanel';
+import SalesCopilotPanel from '@/components/SalesCopilotPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
