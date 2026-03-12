@@ -354,7 +354,13 @@ export default function NewPresentationPage() {
                             </div>
                           )}
                           <EligibilityReasoningPanel result={briefAnalysis.eligibility} title="Verdict eligibilitate brief" />
-                        </div>
+                          {briefAnalysis.brief_rules_matches && briefAnalysis.brief_rules_matches.length > 0 && (
+                            <BriefRulesPanel
+                              matches={briefAnalysis.brief_rules_matches}
+                              pitchLines={briefAnalysis.pitch_lines_from_rules}
+                              recommendedKits={briefAnalysis.recommended_kits_from_rules}
+                            />
+                          )}
                       )}
 
                       {!briefAnalysis && (
