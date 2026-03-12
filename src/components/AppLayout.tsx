@@ -1,7 +1,10 @@
 import { useAuth } from '@/contexts/AuthContext';
+import { useData } from '@/contexts/DataContext';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { LayoutDashboard, Building2, FileText, LogOut, Package, ShoppingBag } from 'lucide-react';
+import SyncStatusIndicator from '@/components/SyncStatusIndicator';
+import DataLoadingScreen from '@/components/DataLoadingScreen';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
