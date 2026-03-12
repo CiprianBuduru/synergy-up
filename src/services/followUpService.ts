@@ -118,17 +118,23 @@ export async function fetchSalesStats(): Promise<{
   total_prospects: number;
   presentations_sent: number;
   interested: number;
+  documents_sent: number;
+  contracts_signed: number;
+  active_clients: number;
   won: number;
 }> {
   const { data, error } = await supabase
     .from('company_follow_ups')
     .select('status');
-  if (error || !data) return { total_prospects: 0, presentations_sent: 0, interested: 0, won: 0 };
+  if (error || !data) return { total_prospects: 0, presentations_sent: 0, interested: 0, documents_sent: 0, contracts_signed: 0, active_clients: 0, won: 0 };
 
   return {
     total_prospects: data.length,
     presentations_sent: data.filter(d => d.status !== 'prospect').length,
-    interested: data.filter(d => ['interested', 'negotiation', 'won'].includes(d.status)).length,
+    interested: data.filter(d => ['interested', 'negotiation', 'documents_sent', 'contract_in_progress', 'contract_signed', 'active_client', 'won'].includes(d.status)).length,
+    documents_sent: data.filter(d => ['documents_sent', 'contract_in_progress', 'contract_signed', 'active_client'].includes(d.status)).length,
+    contracts_signed: data.filter(d => ['contract_signed', 'active_client'].includes(d.status)).length,
+    active_clients: data.filter(d => d.status === 'active_client').length,
     won: data.filter(d => d.status === 'won').length,
   };
 }
