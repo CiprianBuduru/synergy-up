@@ -112,8 +112,11 @@ export default function CompanyPage() {
               </CardContent>
             </Card>
 
-            {/* Enrichment Panel */}
-            <CompanyEnrichmentPanel company={company} enrichment={enrichment || null} />
+            {/* Verified Company Data */}
+            <VerifiedCompanyDataPanel company={company} enrichment={enrichment || null} isDemo={data.isDemo} />
+
+            {/* Commercial Enrichment */}
+            <CommercialEnrichmentPanel company={company} enrichment={enrichment || null} isDemo={data.isDemo} />
           </div>
 
           {/* Sidebar */}
