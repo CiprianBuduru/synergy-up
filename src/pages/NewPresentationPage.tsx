@@ -55,8 +55,7 @@ export default function NewPresentationPage() {
     if (!briefText.trim()) { setStep(3); return; }
     const analysis = analyzeBrief(briefText);
     setBriefAnalysis(analysis);
-    const brief: Brief = {
-      id: `brief-${Date.now()}`,
+    data.addBrief({
       company_id: selectedCompanyId,
       raw_brief: briefText,
       requested_products_json: analysis.products,
@@ -65,9 +64,7 @@ export default function NewPresentationPage() {
       department_detected: analysis.department,
       tone_recommended: analysis.tone,
       eligibility_status: analysis.eligibility.verdict,
-      created_at: new Date().toISOString(),
-    };
-    data.addBrief(brief);
+    });
     setTone(analysis.tone as PresentationTone);
     setStep(3);
   };
