@@ -100,22 +100,40 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       // If DB is empty, seed it
       const dbEmpty = cRes.data.length === 0 && prodRes.data.length === 0;
       if (dbEmpty) {
-        console.log('Database empty, seeding initial data...');
+        console.log('Database empty, attempting to seed...');
         await seedDatabase();
         // Re-fetch after seeding
-        const [c2, e2, p2, s2, b2, calc2, prod2, kit2] = await Promise.all([
-          db.fetchCompanies(), db.fetchEnrichments(), db.fetchPresentations(),
-          db.fetchSlides(), db.fetchBriefs(), db.fetchCalculations(),
-          db.fetchProducts(), db.fetchKits(),
-        ]);
-        setCompanies(c2.data);
-        setEnrichments(e2.data);
-        setPresentations(p2.data);
-        setSlidesState(s2.data);
-        setBriefs(b2.data);
-        setCalculations(calc2.data);
-        setProducts(prod2.data);
-        setKits(kit2.data);
+        try {
+          const [c2, e2, p2, s2, b2, calc2, prod2, kit2] = await Promise.all([
+            db.fetchCompanies(), db.fetchEnrichments(), db.fetchPresentations(),
+            db.fetchSlides(), db.fetchBriefs(), db.fetchCalculations(),
+            db.fetchProducts(), db.fetchKits(),
+          ]);
+          const hasError2 = [c2, e2, p2, s2, b2, calc2, prod2, kit2].some(r => r.error);
+          if (hasError2 || c2.data.length === 0) {
+            throw new Error('Re-fetch after seed failed or still empty');
+          }
+          setCompanies(c2.data);
+          setEnrichments(e2.data);
+          setPresentations(p2.data);
+          setSlidesState(s2.data);
+          setBriefs(b2.data);
+          setCalculations(calc2.data);
+          setProducts(prod2.data);
+          setKits(kit2.data);
+        } catch {
+          // Seed or re-fetch failed, use demo data
+          console.warn('Seed/re-fetch failed, falling back to demo mode');
+          setCompanies(seedCompanies);
+          setEnrichments(seedEnrichments);
+          setPresentations(seedPresentations);
+          setSlidesState(seedSlides);
+          setBriefs(seedBriefs);
+          setCalculations(seedCalculations);
+          setProducts(seedProducts);
+          setKits(seedKits);
+          setIsDemo(true);
+        }
       } else {
         setCompanies(cRes.data);
         setEnrichments(eRes.data);
@@ -153,38 +171,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // ─── Seed database with initial data ───────────────────────
   async function seedDatabase() {
     try {
-      // Insert companies first (need IDs for foreign keys)
-      for (const c of seedCompanies) {
-        await db.insertCompany(c);
+      // Try inserting first company as a test — if it fails, skip entire seed
+      const testResult = await db.insertCompany(seedCompanies[0]);
+      if (testResult.error) {
+        console.warn('Seed test insert failed, skipping seed:', testResult.error.message);
+        return;
       }
-      // Insert enrichments
-      for (const e of seedEnrichments) {
-        await db.insertEnrichment(e);
+      // If test passed, seed rest
+      for (let i = 1; i < seedCompanies.length; i++) {
+        await db.insertCompany(seedCompanies[i]);
       }
-      // Insert products
-      for (const p of seedProducts) {
-        await db.insertProduct(p);
-      }
-      // Insert kits
-      for (const k of seedKits) {
-        await db.insertKit(k);
-      }
-      // Insert calculations
-      for (const c of seedCalculations) {
-        await db.insertCalculation(c);
-      }
-      // Insert briefs
-      for (const b of seedBriefs) {
-        await db.insertBrief(b);
-      }
-      // Insert presentations and slides
-      for (const p of seedPresentations) {
-        await db.insertPresentation(p);
-      }
-      const slideGroups = seedSlides;
-      if (slideGroups.length > 0) {
-        await db.upsertSlides(slideGroups);
-      }
+      for (const e of seedEnrichments) await db.insertEnrichment(e);
+      for (const p of seedProducts) await db.insertProduct(p);
+      for (const k of seedKits) await db.insertKit(k);
+      for (const c of seedCalculations) await db.insertCalculation(c);
+      for (const b of seedBriefs) await db.insertBrief(b);
+      for (const p of seedPresentations) await db.insertPresentation(p);
+      if (seedSlides.length > 0) await db.upsertSlides(seedSlides);
       console.log('Database seeded successfully');
     } catch (err) {
       console.error('Seed failed:', err);
