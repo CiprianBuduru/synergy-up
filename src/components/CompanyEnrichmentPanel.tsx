@@ -513,7 +513,7 @@ export default function CompanyEnrichmentPanel({ company, enrichment, onUpdateEn
                 <p className="text-sm text-foreground leading-relaxed">
                   {isOverridden('public_summary') ? overrides['public_summary'] : enrichment.public_summary}
                   {isOverridden('public_summary') && (
-                    <Badge className="ml-1 h-4 text-[8px] px-1 bg-warning/20 text-warning border-0 align-middle">manual</Badge>
+                    <Badge className="ml-1 h-4 text-[8px] px-1 bg-warning/20 text-warning border-0 align-middle">Manual override</Badge>
                   )}
                 </p>
               )}
