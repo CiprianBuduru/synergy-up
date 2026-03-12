@@ -69,7 +69,7 @@ export default function KitGeneratorPage() {
   }, [data.kits]);
 
   const filteredCatalog = useMemo(() => {
-    return seedKits.filter(k => {
+    return data.kits.filter(k => {
       if (!k.active) return false;
       if (catalogFilter !== 'all' && k.complexity !== catalogFilter && k.category !== catalogFilter) return false;
       if (catalogDeptFilter !== 'all' && !k.target_departments.includes(catalogDeptFilter)) return false;
@@ -80,9 +80,9 @@ export default function KitGeneratorPage() {
       }
       return true;
     });
-  }, [catalogFilter, catalogSearch, catalogDeptFilter, catalogIndustryFilter]);
+  }, [data.kits, catalogFilter, catalogSearch, catalogDeptFilter, catalogIndustryFilter]);
 
-  const categories = [...new Set(seedKits.map(k => k.category))];
+  const categories = [...new Set(data.kits.map(k => k.category))];
 
   return (
     <AppLayout>
