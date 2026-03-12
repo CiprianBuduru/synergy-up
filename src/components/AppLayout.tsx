@@ -18,6 +18,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     { to: '/new', icon: FileText, label: 'Nouă' },
     { to: '/products', icon: ShoppingBag, label: 'Produse' },
     { to: '/kits', icon: Package, label: 'Kit Generator' },
+    { to: '/knowledge', icon: Brain, label: 'Knowledge' },
   ];
 
   return (

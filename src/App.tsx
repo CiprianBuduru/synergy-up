@@ -37,6 +37,8 @@ function AppRoutes() {
       <Route path="/editor/:id" element={<ProtectedRoute><EditorPage /></ProtectedRoute>} />
       <Route path="/kits" element={<ProtectedRoute><KitGeneratorPage /></ProtectedRoute>} />
       <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
+      <Route path="/knowledge" element={<ProtectedRoute><KnowledgePage /></ProtectedRoute>} />
+      <Route path="/preview/:id" element={<ProtectedRoute><PreviewPage /></ProtectedRoute>} />
       <Route path="/preview/:id" element={<ProtectedRoute><PreviewPage /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>

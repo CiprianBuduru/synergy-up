@@ -320,6 +320,101 @@ export default function SalesCopilotPanel({ company, enrichment }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      {/* Sales Learning Loop */}
+      <SalesLearningCard
+        companyId={company.id}
+        companyName={company.company_name}
+        onRecorded={() => fetchTimelineEvents(company.id).then(setTimeline)}
+      />
     </div>
+  );
+}
+
+// ═══════════ SALES LEARNING CARD ═══════════
+
+function SalesLearningCard({ companyId, companyName, onRecorded }: { companyId: string; companyName: string; onRecorded: () => void }) {
+  const [dealReason, setDealReason] = useState('');
+  const [selectedClass, setSelectedClass] = useState<ResponseClass | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const handleDealOutcome = async (outcome: 'deal_won' | 'deal_lost') => {
+    setSaving(true);
+    await recordInteraction(companyId, outcome, {
+      outcome,
+      client_response: dealReason,
+      metadata: { company_name: companyName },
+    });
+    if (selectedClass) {
+      await classifyResponse(companyId, selectedClass, dealReason);
+    }
+    invalidateBoostCache();
+    await upsertFollowUp(companyId, outcome === 'deal_won' ? 'active_client' : 'lost', dealReason);
+    toast({ title: outcome === 'deal_won' ? '🎉 Deal câștigat!' : 'Deal pierdut', description: 'Datele au fost salvate în Knowledge Engine.' });
+    setDealReason('');
+    setSelectedClass(null);
+    setSaving(false);
+    onRecorded();
+  };
+
+  return (
+    <Card className="border-0 shadow-sm">
+      <CardHeader className="py-3 px-4">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Trophy className="h-4 w-4 text-accent" /> Rezultat oportunitate
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 pt-0 space-y-3">
+        {/* Response classification */}
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1.5 block">Clasificare răspuns client</Label>
+          <div className="flex flex-wrap gap-1.5">
+            {(Object.entries(RESPONSE_CLASS_CONFIG) as [ResponseClass, typeof RESPONSE_CLASS_CONFIG[ResponseClass]][]).map(([key, cfg]) => (
+              <button
+                key={key}
+                onClick={() => setSelectedClass(key)}
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
+                  selectedClass === key ? cfg.color + ' ring-2 ring-offset-1 ring-primary/30' : 'bg-muted/50 text-muted-foreground hover:bg-muted'
+                }`}
+              >
+                <span>{cfg.icon}</span> {cfg.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Reason */}
+        <div>
+          <Label className="text-xs text-muted-foreground mb-1.5 block">Motiv / Note</Label>
+          <Input
+            placeholder="De ce s-a câștigat/pierdut?"
+            value={dealReason}
+            onChange={e => setDealReason(e.target.value)}
+            className="text-sm"
+          />
+        </div>
+
+        {/* Buttons */}
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5"
+            disabled={saving}
+            onClick={() => handleDealOutcome('deal_won')}
+          >
+            <Trophy className="h-3.5 w-3.5" /> Deal Won
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="text-xs gap-1.5 border-red-200 text-red-600 hover:bg-red-50"
+            disabled={saving}
+            onClick={() => handleDealOutcome('deal_lost')}
+          >
+            <XCircle className="h-3.5 w-3.5" /> Deal Lost
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
