@@ -21,8 +21,11 @@ export interface BriefRule {
   match_keywords: string[];
 }
 
+export type RuleMatchType = 'exact_match' | 'synonym_match' | 'fallback_match';
+
 export interface BriefRuleMatch {
   rule: BriefRule;
   matched_keyword: string;
   confidence: number;
+  rule_type: RuleMatchType;
 }
