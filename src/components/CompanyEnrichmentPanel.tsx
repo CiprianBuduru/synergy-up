@@ -73,12 +73,15 @@ function getConfidenceLabel(confidence: number): string {
   return 'Încredere scăzută — date parțiale';
 }
 
-function getStatusBadge(status: EnrichmentStatus | string, hasOverrides: boolean) {
+function getStatusBadge(status: EnrichmentStatus | string, hasOverrides: boolean, isDemo: boolean) {
   if (hasOverrides) {
-    return { label: 'Manual Override', icon: Edit3, className: 'border-warning/30 text-warning bg-warning/5' };
+    return { label: 'Manual override', icon: Edit3, className: 'border-warning/30 text-warning bg-warning/5' };
+  }
+  if (isDemo) {
+    return { label: 'Demo data', icon: AlertTriangle, className: 'border-warning/30 text-warning bg-warning/5' };
   }
   switch (status) {
-    case 'verified': return { label: 'Verificat', icon: ShieldCheck, className: 'border-success/30 text-success bg-success/5' };
+    case 'verified': return { label: 'Verified source', icon: ShieldCheck, className: 'border-success/30 text-success bg-success/5' };
     case 'estimated': return { label: 'Estimat', icon: Eye, className: 'border-warning/30 text-warning bg-warning/5' };
     default: return { label: 'Necesită confirmare', icon: ShieldAlert, className: 'border-destructive/30 text-destructive bg-destructive/5' };
   }
