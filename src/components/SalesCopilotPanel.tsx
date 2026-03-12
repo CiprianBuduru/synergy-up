@@ -56,13 +56,13 @@ export default function SalesCopilotPanel({ company, enrichment }: Props) {
     const s = analyzeCompanySignals(company, enrichment, brief?.raw_brief);
     setSignals(s);
 
-    const i = brief?.raw_brief ? detectIntent(brief.raw_brief, department) : null;
+    const i = brief?.raw_brief ? detectIntent(brief.raw_brief) : null;
     setIntent(i);
 
     const ins = generateOpportunityInsights(enrichment, s, i, industry, calc);
     setInsights(ins);
 
-    const defaultIntent: DetectedIntent = i || { primary_intent: 'onboarding', secondary_intent: null, confidence: 0.5, reasoning: '' };
+    const defaultIntent: DetectedIntent = i || { primary_intent: 'onboarding', secondary_intent: null, confidence: 0.5, all_intents: [] };
     const strategy = generatePitchStrategy(s, defaultIntent, industry, calc?.spendable_half_estimated);
 
     const qp = generateQuickPitch(company.company_name, industry, s, i, ins);
