@@ -325,7 +325,7 @@ function suggestPresentationType(primary: RequestType, items: string[]): Suggest
 
 function suggestEmailResponseType(primary: RequestType, docs: RequestedDocument[]): SuggestedEmailResponseType {
   if (docs.length > 0 && primary !== 'pricing_request') return 'docs_plus_presentation_response';
-  if (primary === 'pricing_request' || primary === 'procurement') return 'pricing_followup_response';
+  if (primary === 'pricing_request') return 'pricing_followup_response';
   if (primary === 'procurement') return 'procurement_response';
   return 'intro_response';
 }
