@@ -308,23 +308,17 @@ export default function NewPresentationPage() {
     const parsedCompanyName = parsedEmail.company_name?.trim() || '';
     console.log('[DEBUG] handleUseEmailAsBrief — company from parser:', parsedCompanyName || 'NONE');
 
-    // Try to auto-match an EXISTING company (no creation)
+    // Use resolution engine for auto-match (no creation, no DB writes)
     if (parsedCompanyName && !selectedCompanyId) {
-      const exactMatch = findExactCompanyMatch(parsedCompanyName, data.companies);
-      if (exactMatch) {
-        setSelectedCompanyId(exactMatch.id);
-        console.log('[DEBUG] company matched (exact):', exactMatch.id, exactMatch.company_name);
-        toast.success(`Companie detectată: ${exactMatch.company_name}`);
+      const resolution = resolveCompany(parsedCompanyName, data.companies);
+      if (resolution.status === 'confirmed' && resolution.bestMatch) {
+        setSelectedCompanyId(resolution.bestMatch.company.id);
+        toast.success(`Companie confirmată: ${resolution.bestMatch.company.company_name}`);
+      } else if (resolution.status === 'likely_match' && resolution.bestMatch) {
+        // Don't auto-select likely matches — let the resolution panel handle it
+        toast.info(`Potrivire probabilă: "${resolution.bestMatch.company.company_name}" — confirmă în panoul de verificare.`);
       } else {
-        const fuzzyMatch = findFuzzyCompanyMatch(parsedCompanyName, data.companies);
-        if (fuzzyMatch) {
-          setSelectedCompanyId(fuzzyMatch.id);
-          console.log('[DEBUG] company matched (fuzzy):', fuzzyMatch.id, fuzzyMatch.company_name);
-          toast.success(`Companie detectată: ${fuzzyMatch.company_name}`);
-        } else {
-          console.log('[DEBUG] company not found in DB — marking as unverified:', parsedCompanyName);
-          toast.info(`Companie detectată: "${parsedCompanyName}" — necesită verificare manuală.`);
-        }
+        toast.info(`Companie "${parsedCompanyName}" — necesită verificare manuală.`);
       }
     }
 
