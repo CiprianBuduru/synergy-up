@@ -27,6 +27,7 @@ import BriefRulesPanel from '@/components/BriefRulesPanel';
 import ExtractedBriefPanel from '@/components/ExtractedBriefPanel';
 import CompanyResolutionPanel from '@/components/CompanyResolutionPanel';
 import OfficialCompanyDataPanel from '@/components/OfficialCompanyDataPanel';
+import PublicWebResearchPanel from '@/components/PublicWebResearchPanel';
 import { generatePresentation } from '@/lib/presentation-generator';
 import { presentationTemplates } from '@/lib/presentation-templates';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
@@ -651,7 +652,10 @@ export default function NewPresentationPage() {
 
               {/* Official Company Data Panel — shown after company confirmed */}
               {company && (
-                <OfficialCompanyDataPanel company={company} enrichment={enrichment || null} />
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <OfficialCompanyDataPanel company={company} enrichment={enrichment || null} />
+                  <PublicWebResearchPanel company={company} enrichment={enrichment || null} />
+                </div>
               )}
 
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
