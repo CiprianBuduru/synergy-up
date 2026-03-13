@@ -16,6 +16,7 @@ import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Sea
 import { toast } from 'sonner';
 import { analyzeBrief } from '@/lib/eligibility-engine';
 import { searchCompanies, getCompanySearchResult } from '@/services/companySearchService';
+import { resolveCompany } from '@/services/companyResolutionService';
 import { detectIntent, INTENT_LABELS } from '@/services/intentDetectionService';
 import { analyzeCompanySignals } from '@/services/companySignalsService';
 import { getIndustryProfile } from '@/services/industryIntelligenceService';
