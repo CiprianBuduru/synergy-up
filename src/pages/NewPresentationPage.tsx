@@ -284,66 +284,119 @@ export default function NewPresentationPage() {
   const handleUseEmailAsBrief = async () => {
     if (!parsedEmail) return;
 
-    // Step 1: Resolve company — match existing or create new
+    const parsedCompanyName = parsedEmail.company_name?.trim() || '';
     let resolvedCompanyId = selectedCompanyId;
-    console.log('[DEBUG] handleUseEmailAsBrief — start, selectedCompanyId:', selectedCompanyId, 'parsed company_name:', parsedEmail.company_name);
+    let resolutionSource: 'exact_match' | 'fuzzy_match' | 'created' | 'lookup_after_create' | 'lookup_db' | null = null;
 
-    if (!resolvedCompanyId && parsedEmail.company_name) {
-      // Try to find existing company (fuzzy: includes match)
-      const nameL = parsedEmail.company_name.toLowerCase();
-      const existingMatch = data.companies.find(c =>
-        c.company_name.toLowerCase() === nameL ||
-        c.legal_name.toLowerCase() === nameL ||
-        c.company_name.toLowerCase().includes(nameL) ||
-        nameL.includes(c.company_name.toLowerCase())
-      );
+    console.log('[DEBUG] company detected from email:', parsedCompanyName || 'NONE');
+    console.log('[DEBUG] handleUseEmailAsBrief start, selectedCompanyId:', selectedCompanyId || 'NONE');
 
-      if (existingMatch) {
-        resolvedCompanyId = existingMatch.id;
-        setSelectedCompanyId(existingMatch.id);
-        console.log('[DEBUG] Existing company found:', existingMatch.id, existingMatch.company_name);
-        toast.success(`Companie selectată automat: ${existingMatch.company_name}`);
+    // 1) Exact match
+    if (!resolvedCompanyId && parsedCompanyName) {
+      const exactMatch = findExactCompanyMatch(parsedCompanyName, data.companies);
+      if (exactMatch) {
+        resolvedCompanyId = exactMatch.id;
+        resolutionSource = 'exact_match';
+        console.log('[DEBUG] company matched (exact):', exactMatch.id, exactMatch.company_name);
+      }
+    }
+
+    // 2) Fuzzy match
+    if (!resolvedCompanyId && parsedCompanyName) {
+      const fuzzyMatch = findFuzzyCompanyMatch(parsedCompanyName, data.companies);
+      if (fuzzyMatch) {
+        resolvedCompanyId = fuzzyMatch.id;
+        resolutionSource = 'fuzzy_match';
+        console.log('[DEBUG] company matched (fuzzy):', fuzzyMatch.id, fuzzyMatch.company_name);
+      }
+    }
+
+    // 3) Create company if still unresolved
+    if (!resolvedCompanyId && parsedCompanyName) {
+      try {
+        console.log('[DEBUG] company created attempt:', parsedCompanyName);
+        const createdCompany = await data.addCompany({
+          company_name: parsedCompanyName,
+          legal_name: parsedCompanyName,
+          website: '',
+          industry: parsedEmail.industry_hint || '',
+          company_size: '',
+          location: parsedEmail.location_hint || '',
+          description: '',
+          contact_name: parsedEmail.contact_name || '',
+          contact_role: parsedEmail.contact_role || '',
+          contact_department: 'General',
+          email: parsedEmail.contact_email || '',
+          phone: parsedEmail.contact_phone || '',
+          notes: 'Companie creată automat din email parser',
+        });
+
+        if (createdCompany?.id) {
+          resolvedCompanyId = createdCompany.id;
+          resolutionSource = 'created';
+          console.log('[DEBUG] company created:', createdCompany.id, createdCompany.company_name);
+        } else {
+          console.warn('[DEBUG] addCompany returned null/undefined, starting fallback lookup after create');
+        }
+      } catch (err) {
+        console.error('[DEBUG] company create failed:', err);
+      }
+    }
+
+    // 4) Hard guarantee fallback: lookup after create in local state
+    if (!resolvedCompanyId && parsedCompanyName) {
+      console.log('[DEBUG] company lookup after create (local state) for:', parsedCompanyName);
+      const localMatch =
+        findExactCompanyMatch(parsedCompanyName, data.companies) ||
+        findFuzzyCompanyMatch(parsedCompanyName, data.companies);
+
+      if (localMatch) {
+        resolvedCompanyId = localMatch.id;
+        resolutionSource = 'lookup_after_create';
+        console.log('[DEBUG] company lookup after create (local) matched:', localMatch.id, localMatch.company_name);
+      }
+    }
+
+    // 5) Hard guarantee fallback: lookup directly in DB + refresh state
+    if (!resolvedCompanyId && parsedCompanyName) {
+      console.log('[DEBUG] company lookup after create (DB) for:', parsedCompanyName);
+      const { data: dbCompanies, error: dbLookupError } = await dbAccess.fetchCompanies();
+      if (dbLookupError) {
+        console.error('[DEBUG] company lookup after create (DB) failed:', dbLookupError);
       } else {
-        // Create new company
-        try {
-          console.log('[DEBUG] Creating new company:', parsedEmail.company_name);
-          const newCompany = await data.addCompany({
-            company_name: parsedEmail.company_name,
-            legal_name: parsedEmail.company_name,
-            website: '',
-            industry: parsedEmail.industry_hint || '',
-            company_size: '',
-            location: parsedEmail.location_hint || '',
-            description: '',
-            contact_name: parsedEmail.contact_name || '',
-            contact_role: parsedEmail.contact_role || '',
-            contact_department: 'General',
-            email: parsedEmail.contact_email || '',
-            phone: parsedEmail.contact_phone || '',
-            notes: 'Companie creată automat din email parser',
-          });
-          if (newCompany) {
-            resolvedCompanyId = newCompany.id;
-            setSelectedCompanyId(newCompany.id);
-            console.log('[DEBUG] Company created:', newCompany.id, newCompany.company_name);
-            toast.success(`Companie creată automat: ${newCompany.company_name}`);
-          } else {
-            console.error('[DEBUG] addCompany returned null');
-            toast.error('Nu am putut crea compania. Selecteaz-o manual.');
-          }
-        } catch (err) {
-          console.error('[DEBUG] Company creation failed:', err);
-          toast.error('Eroare la crearea companiei. Selecteaz-o manual.');
+        const dbMatch =
+          findExactCompanyMatch(parsedCompanyName, dbCompanies) ||
+          findFuzzyCompanyMatch(parsedCompanyName, dbCompanies);
+
+        if (dbMatch) {
+          resolvedCompanyId = dbMatch.id;
+          resolutionSource = 'lookup_db';
+          console.log('[DEBUG] company lookup after create (DB) matched:', dbMatch.id, dbMatch.company_name);
+          await data.refresh();
         }
       }
     }
 
-    // If we still don't have a company and a name was detected, warn but continue
-    if (!resolvedCompanyId && parsedEmail.company_name) {
-      console.warn('[DEBUG] Company resolution failed — no resolvedCompanyId');
+    // If parser detected company but still unresolved, fail clearly
+    if (parsedCompanyName && !resolvedCompanyId) {
+      console.error('[DEBUG] company resolution failed for:', parsedCompanyName);
+      toast.error('Company resolution failed. Selectează manual compania și încearcă din nou.');
+      return;
     }
 
-    console.log('[DEBUG] resolvedCompanyId after resolution:', resolvedCompanyId);
+    if (resolvedCompanyId) {
+      setSelectedCompanyId(resolvedCompanyId);
+      console.log('[DEBUG] selectedCompanyId set:', resolvedCompanyId, 'source:', resolutionSource || 'preselected');
+      if (resolutionSource === 'created' || resolutionSource === 'lookup_after_create' || resolutionSource === 'lookup_db') {
+        toast.success('Company auto-created and selected.');
+      } else if (resolutionSource === 'exact_match' || resolutionSource === 'fuzzy_match') {
+        toast.success('Company auto-selected.');
+      }
+    }
+
+    if (!parsedCompanyName && !resolvedCompanyId) {
+      toast.error('Parserul nu a detectat compania. Selectează manual compania înainte de generare.');
+    }
 
     setEmailFlowStatus(prev => {
       const next = new Set(prev);
@@ -351,11 +404,9 @@ export default function NewPresentationPage() {
       return Array.from(next) as typeof prev;
     });
 
-    // Step 2: Set brief text and auto-analyze
     const cleanedText = parsedEmail.cleaned_body;
     setBriefText(cleanedText);
 
-    // Step 3: Run analysis immediately
     const analysis = analyzeBrief(cleanedText);
     setBriefAnalysis(analysis);
     setEmailFlowStatus(prev => {
@@ -367,7 +418,6 @@ export default function NewPresentationPage() {
     });
     setTone(analysis.tone as PresentationTone);
 
-    // Step 4: Save brief with resolved company ID
     if (resolvedCompanyId) {
       data.addBrief({
         company_id: resolvedCompanyId,
@@ -381,7 +431,6 @@ export default function NewPresentationPage() {
       }).catch(err => console.warn('[DEBUG] Brief save failed (non-blocking):', err));
     }
 
-    // Move to step 2 with analysis already done
     setStep(2);
   };
 
