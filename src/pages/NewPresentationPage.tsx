@@ -649,7 +649,7 @@ export default function NewPresentationPage() {
                       setSelectedCompanyId(id);
                       const matched = data.getCompany(id);
                       toast.success(`Companie confirmată: ${matched?.company_name || id}`);
-                      setEmailFlowStatus(prev => [...new Set([...prev, 'company_verified'])]);
+                      addFlowStep('company_verified');
                     } else {
                       setSelectedCompanyId('');
                     }
