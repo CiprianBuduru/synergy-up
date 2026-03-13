@@ -212,6 +212,19 @@ export default function NewPresentationPage() {
     const result = parseEmailBrief(rawEmail);
     setParsedEmail(result);
     setEmailFlowStatus(['parsed']);
+
+    // Auto-match existing company by parsed name
+    if (result.company_name && !selectedCompanyId) {
+      const nameL = result.company_name.toLowerCase();
+      const match = data.companies.find(c =>
+        c.company_name.toLowerCase() === nameL ||
+        c.legal_name.toLowerCase() === nameL
+      );
+      if (match) {
+        setSelectedCompanyId(match.id);
+        toast.success(`Companie detectată: ${match.company_name}`);
+      }
+    }
   };
 
   const handleReparse = () => {
