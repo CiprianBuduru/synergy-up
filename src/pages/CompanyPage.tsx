@@ -8,6 +8,7 @@ import DocumentPackPanel from '@/components/DocumentPackPanel';
 import OnboardingChecklistPanel from '@/components/OnboardingChecklistPanel';
 import OfficialWebsiteDataPanel from '@/components/OfficialWebsiteDataPanel';
 import CommercialResearchInsightsPanel from '@/components/CommercialResearchInsightsPanel';
+import CommercialInsightsPanel from '@/components/CommercialInsightsPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ import { generateOpportunityInsights } from '@/services/opportunityInsightsServi
 import { researchOfficialWebsite, type OfficialWebsiteData, type ResearchStep, RESEARCH_STEP_LABELS } from '@/services/officialWebsiteResearchService';
 import { detectBusinessSignals, type BusinessSignalReport } from '@/services/businessSignalDetectionService';
 import { generateResearchInsights, type CommercialResearchInsights } from '@/services/companyResearchInsightsService';
+import { generateCommercialInsights, type CommercialInsights } from '@/services/commercialInsightsService';
 import { generatePitchAngles } from '@/services/pitchAngleGeneratorService';
 
 export default function CompanyPage() {
@@ -39,6 +41,7 @@ export default function CompanyPage() {
   const [researchStep, setResearchStep] = useState<ResearchStep>('idle');
   const [websiteData, setWebsiteData] = useState<OfficialWebsiteData | null>(null);
   const [researchInsights, setResearchInsights] = useState<CommercialResearchInsights | null>(null);
+  const [commercialInsights, setCommercialInsights] = useState<CommercialInsights | null>(null);
 
   const insights = useMemo(() => {
     if (!company) return null;
@@ -78,6 +81,12 @@ export default function CompanyPage() {
       company, enrichment, webData, signalReport, companySignals, intent, products, kits
     );
     setResearchInsights(resInsights);
+
+    // Step 5: Generate commercial insights
+    const commInsights = generateCommercialInsights(
+      company, enrichment, webData, null, signalReport, companySignals, intent, products, kits
+    );
+    setCommercialInsights(commInsights);
 
     // Generate pitch angles (integration point)
     generatePitchAngles(webData, signalReport, companySignals, intent);
@@ -196,6 +205,9 @@ export default function CompanyPage() {
 
             {/* Commercial Research Insights — shown after research */}
             {researchInsights && <CommercialResearchInsightsPanel data={researchInsights} />}
+
+            {/* Commercial Insights — shown after research */}
+            {commercialInsights && <CommercialInsightsPanel data={commercialInsights} />}
           </div>
 
           {/* Sidebar */}
