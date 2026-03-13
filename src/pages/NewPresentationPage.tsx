@@ -694,7 +694,7 @@ export default function NewPresentationPage() {
                       enrichment={enrichment || null}
                       onResearchComplete={(result: WebResearchResult) => {
                         setWebResearchResult(result);
-                        setEmailFlowStatus(prev => [...new Set([...prev, 'research_done'])]);
+                        addFlowStep('research_done');
                       }}
                     />
                   </div>
