@@ -24,6 +24,7 @@ import { generateOpportunityInsights } from '@/services/opportunityInsightsServi
 import { researchOfficialWebsite, type OfficialWebsiteData, type ResearchStep, RESEARCH_STEP_LABELS } from '@/services/officialWebsiteResearchService';
 import { detectBusinessSignals, type BusinessSignalReport } from '@/services/businessSignalDetectionService';
 import { generateResearchInsights, type CommercialResearchInsights } from '@/services/companyResearchInsightsService';
+import { generateCommercialInsights, type CommercialInsights } from '@/services/commercialInsightsService';
 import { generatePitchAngles } from '@/services/pitchAngleGeneratorService';
 
 export default function CompanyPage() {
