@@ -207,6 +207,7 @@ function extractContact(raw: string, signature: string | null) {
   const companyPatterns = [
     /(?:compania|firma|societatea|sc|s\.c\.)\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+s\.?r\.?l\.?|\s+s\.?a\.?|\s+s\.?r\.?l|\s*$)/im,
     /(?:din\s+partea|behalf\s+of|represent[aă]m)\s+(?:companiei\s+)?([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+s\.?r\.?l\.?|\s+s\.?a\.?|\s*[,.])/im,
+    /(?:de\s+la)\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+(?:si|și|iar|\.|\,))/im,
     /([A-ZÀ-Ž][\w\s&]{2,30}?)\s+s\.?r\.?l\.?/im,
   ];
   for (const pat of companyPatterns) {
