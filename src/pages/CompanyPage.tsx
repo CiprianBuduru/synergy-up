@@ -41,6 +41,7 @@ export default function CompanyPage() {
   const [researchStep, setResearchStep] = useState<ResearchStep>('idle');
   const [websiteData, setWebsiteData] = useState<OfficialWebsiteData | null>(null);
   const [researchInsights, setResearchInsights] = useState<CommercialResearchInsights | null>(null);
+  const [commercialInsights, setCommercialInsights] = useState<CommercialInsights | null>(null);
 
   const insights = useMemo(() => {
     if (!company) return null;
