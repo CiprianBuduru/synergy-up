@@ -47,6 +47,8 @@ const INTENT_PATTERNS: IntentPattern[] = [
 ];
 
 export const INTENT_LABELS: Record<IntentType, string> = {
+  exploration: 'Explorare servicii',
+  service_discovery: 'Descoperire servicii UP',
   onboarding: 'Onboarding angajați',
   employer_branding: 'Employer Branding',
   conference: 'Conferință / Summit',
