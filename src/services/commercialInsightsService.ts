@@ -249,7 +249,7 @@ export function applyInsightOverride(
   field: string,
   newValue: unknown,
 ): CommercialInsights {
-  const original = (data as Record<string, unknown>)[field] ?? null;
+  const original = (data as unknown as Record<string, unknown>)[field] ?? null;
   return {
     ...data,
     [field]: newValue,
