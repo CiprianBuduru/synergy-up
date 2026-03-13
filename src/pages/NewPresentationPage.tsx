@@ -26,6 +26,7 @@ import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
 import BriefRulesPanel from '@/components/BriefRulesPanel';
 import ExtractedBriefPanel from '@/components/ExtractedBriefPanel';
 import CompanyResolutionPanel from '@/components/CompanyResolutionPanel';
+import OfficialCompanyDataPanel from '@/components/OfficialCompanyDataPanel';
 import { generatePresentation } from '@/lib/presentation-generator';
 import { presentationTemplates } from '@/lib/presentation-templates';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
@@ -647,6 +648,12 @@ export default function NewPresentationPage() {
                   }}
                 />
               )}
+
+              {/* Official Company Data Panel — shown after company confirmed */}
+              {company && (
+                <OfficialCompanyDataPanel company={company} enrichment={enrichment || null} />
+              )}
+
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
                 <div className="lg:col-span-3">
                   <Card className="border-0 shadow-md">
