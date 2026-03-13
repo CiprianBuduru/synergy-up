@@ -8,6 +8,7 @@ import DocumentPackPanel from '@/components/DocumentPackPanel';
 import OnboardingChecklistPanel from '@/components/OnboardingChecklistPanel';
 import OfficialWebsiteDataPanel from '@/components/OfficialWebsiteDataPanel';
 import CommercialResearchInsightsPanel from '@/components/CommercialResearchInsightsPanel';
+import CommercialInsightsPanel from '@/components/CommercialInsightsPanel';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
