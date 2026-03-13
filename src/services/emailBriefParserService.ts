@@ -207,6 +207,7 @@ function extractContact(raw: string, signature: string | null) {
   const companyPatterns = [
     /(?:compania|firma|societatea|sc|s\.c\.)\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+s\.?r\.?l\.?|\s+s\.?a\.?|\s+s\.?r\.?l|\s*$)/im,
     /(?:din\s+partea|behalf\s+of|represent[aă]m)\s+(?:companiei\s+)?([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+s\.?r\.?l\.?|\s+s\.?a\.?|\s*[,.])/im,
+    /(?:de\s+la)\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+(?:si|și|iar|\.|\,))/im,
     /([A-ZÀ-Ž][\w\s&]{2,30}?)\s+s\.?r\.?l\.?/im,
   ];
   for (const pat of companyPatterns) {
@@ -403,19 +404,32 @@ function detectFlags(norm: string) {
 
 // ═══════════ REQUEST TYPE CLASSIFICATION ═══════════
 
-function classifyRequestType(norm: string, flags: ReturnType<typeof detectFlags>, nonProduct: string[]): { primary: RequestType; secondary: RequestType[] } {
+function classifyRequestType(norm: string, flags: ReturnType<typeof detectFlags>, nonProduct: string[], items: string[]): { primary: RequestType; secondary: RequestType[] } {
   const types: RequestType[] = [];
+
+  // Detect exploratory signals FIRST
+  const exploratorySignals = /informatii|informații|detalii|explorar|interes|curios|doresc\s+sa\s+aflu|ce\s+servicii|ce\s+produse|ce\s+putem|ce\s+pot\s+fi|orice\s+informatie|trimite.*informatii|trimite.*prezentare|as\s+fi\s+interesat|sa\s+primesc/.test(norm);
+  const hasFondHandicap = /fond\s+(de\s+)?handicap|fond\s+dizabilit|unitate\s+protejata/.test(norm);
 
   if (flags.asks_for_price || nonProduct.includes('oferta de pret')) types.push('pricing_request');
   if (flags.asks_for_presentation || nonProduct.includes('prezentare')) types.push('presentation_request');
   if (nonProduct.includes('documente justificative') || /autorizatie|certificat|dovada|acte\s+legale/.test(norm)) types.push('documents_request');
   if (/achizitie|achizitii|procurement|comanda|furniz|aprovizion/.test(norm)) types.push('procurement');
-  if (/informatii|informații|detalii|explorar|interes|curios|doresc\s+sa\s+aflu/.test(norm)) types.push('exploratory');
+  if (exploratorySignals) types.push('exploratory');
 
   // Remove duplicates
   const uniqueTypes = [...new Set(types)];
 
   if (uniqueTypes.length === 0) uniqueTypes.push('exploratory');
+
+  // KEY FIX: If no concrete product items were found AND exploratory signals exist,
+  // force exploratory as primary even if other types are present
+  const isExploratoryEmail = items.length === 0 && (exploratorySignals || hasFondHandicap);
+
+  if (isExploratoryEmail) {
+    const secondary = uniqueTypes.filter(t => t !== 'exploratory');
+    return { primary: 'exploratory', secondary };
+  }
 
   // If multiple distinct types detected → mixed
   const primary: RequestType = uniqueTypes.length > 1 ? 'mixed_request' : uniqueTypes[0];
@@ -479,11 +493,30 @@ export function parseEmailBrief(rawEmail: string): ParsedEmailBrief {
   const contact = extractContact(rawEmail, signature);
   const { items, nonProduct, categories } = extractItems(body, norm);
   const flags = detectFlags(norm);
-  const { primary, secondary } = classifyRequestType(norm, flags, nonProduct);
+  const { primary, secondary } = classifyRequestType(norm, flags, nonProduct, items);
   const docs = detectRequestedDocuments(norm);
 
   // Run through Brief Rules Engine
   const rulesResult = analyzeBriefWithRules(body);
+
+  // For exploratory emails with no concrete items, enrich non-product requests
+  const isExploratory = primary === 'exploratory' && items.length === 0;
+  const enrichedNonProduct = isExploratory
+    ? [...new Set([...nonProduct, 'prezentare', 'informații despre servicii', 'lista produse/servicii eligibile'])]
+    : nonProduct;
+
+  // Industry-specific recommendations for exploratory emails
+  let exploratoryProducts = rulesResult.recommended_products;
+  let exploratoryKits = rulesResult.recommended_kits;
+  let exploratoryPitchLines = rulesResult.pitch_lines;
+
+  if (isExploratory && contact.industry_hint) {
+    const indHint = (contact.industry_hint || '').toLowerCase();
+    const { products: indProducts, kits: indKits, pitchLines: indPitch } = getExploratoryRecommendations(indHint);
+    exploratoryProducts = [...new Set([...exploratoryProducts, ...indProducts])];
+    exploratoryKits = [...new Set([...exploratoryKits, ...indKits])];
+    exploratoryPitchLines = [...new Set([...exploratoryPitchLines, ...indPitch])];
+  }
 
   return {
     ...contact,
@@ -493,20 +526,52 @@ export function parseEmailBrief(rawEmail: string): ParsedEmailBrief {
     primary_request_type: primary,
     secondary_request_types: secondary,
     requested_documents: docs,
-    requested_non_product_requests: nonProduct,
+    requested_non_product_requests: enrichedNonProduct,
     ...flags,
-    suggested_presentation_type: suggestPresentationType(primary, items),
-    suggested_email_response_type: suggestEmailResponseType(primary, docs, flags),
-    short_response_summary: buildSummary(contact, items, nonProduct, primary, secondary),
+    suggested_presentation_type: isExploratory ? 'general_exploratory' : suggestPresentationType(primary, items),
+    suggested_email_response_type: isExploratory ? 'intro_response' : suggestEmailResponseType(primary, docs, flags),
+    short_response_summary: buildSummary(contact, items, enrichedNonProduct, primary, secondary),
     brief_rules_matches: rulesResult.matches,
-    recommended_products: rulesResult.recommended_products,
-    recommended_kits: rulesResult.recommended_kits,
-    pitch_lines: rulesResult.pitch_lines,
-    notes: '',
+    recommended_products: exploratoryProducts,
+    recommended_kits: exploratoryKits,
+    pitch_lines: exploratoryPitchLines,
+    notes: isExploratory ? 'Exploratory brief — no direct product request detected. Generating eligible categories and recommended kits.' : '',
     raw_email_body: rawEmail,
     cleaned_body: body,
     signature_block: signature,
   };
+}
+
+// ═══════════ EXPLORATORY RECOMMENDATIONS BY INDUSTRY ═══════════
+
+interface ExploratoryRecs {
+  products: string[];
+  kits: string[];
+  pitchLines: string[];
+}
+
+const INDUSTRY_EXPLORATORY_RECS: Record<string, ExploratoryRecs> = {
+  horeca: {
+    products: ['textile personalizate', 'șorțuri personalizate', 'materiale print', 'badge-uri', 'roll-up', 'mape', 'papetărie personalizată', 'produse promo pentru evenimente'],
+    kits: ['Event Promotion Kit', 'Team Event Kit', 'Branded Print Kit', 'HoReCa Branding Kit'],
+    pitchLines: ['Materiale branduite pentru echipă și evenimente — 100% eligibile prin unitate protejată', 'Șorțuri, tricouri și badge-uri personalizate pentru staff HoReCa', 'Kituri de eveniment cu materiale print și promo branduite'],
+  },
+  events: {
+    products: ['textile personalizate', 'șorțuri personalizate', 'materiale print', 'badge-uri', 'roll-up', 'mape', 'papetărie personalizată', 'produse promo pentru evenimente'],
+    kits: ['Event Promotion Kit', 'Team Event Kit', 'Branded Print Kit', 'HoReCa Branding Kit'],
+    pitchLines: ['Suport complet pentru evenimente: bannere, badge-uri, mape, materiale print', 'Kituri event branduite realizate intern — eligibile 100%'],
+  },
+  general: {
+    products: ['textile personalizate', 'materiale print', 'papetărie personalizată', 'produse promo branduite', 'mape', 'agende'],
+    kits: ['Office Starter Kit', 'Branded Print Kit', 'Onboarding Starter Kit'],
+    pitchLines: ['Gamă completă de produse eligibile prin unitate protejată', 'Personalizare, tipărire și ambalare — operațiuni realizate integral intern'],
+  },
+};
+
+function getExploratoryRecommendations(industryHint: string): ExploratoryRecs {
+  if (/horeca|restaurant|hotel|catering/.test(industryHint)) return INDUSTRY_EXPLORATORY_RECS.horeca;
+  if (/event|eveniment/.test(industryHint)) return INDUSTRY_EXPLORATORY_RECS.events;
+  return INDUSTRY_EXPLORATORY_RECS.general;
 }
 
 // Labels

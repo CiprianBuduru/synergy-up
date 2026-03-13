@@ -38,6 +38,8 @@ const WEIGHTS = {
 
 // ═══════════ INTENT → PRODUCT TYPE MAP ═══════════
 const INTENT_PRODUCT_AFFINITY: Record<IntentType, string[]> = {
+  exploration: ['kit', 'promoțional', 'textile', 'print', 'papetărie', 'vizual'],
+  service_discovery: ['kit', 'promoțional', 'textile', 'print', 'papetărie', 'vizual'],
   onboarding: ['kit', 'textile', 'papetărie', 'promoțional'],
   employer_branding: ['textile', 'promoțional', 'eco', 'kit'],
   conference: ['print', 'promoțional', 'vizual', 'kit'],
@@ -141,6 +143,8 @@ export function rankProducts(
 // ═══════════ KIT RANKING ═══════════
 
 const INTENT_KIT_AFFINITY: Record<IntentType, string[]> = {
+  exploration: ['HR', 'Office', 'Marketing', 'Corporate', 'Protocol'],
+  service_discovery: ['HR', 'Office', 'Marketing', 'Corporate', 'Protocol'],
   onboarding: ['HR', 'Office'],
   employer_branding: ['HR', 'Marketing'],
   conference: ['Marketing', 'Corporate'],

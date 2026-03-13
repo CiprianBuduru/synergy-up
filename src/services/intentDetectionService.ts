@@ -13,7 +13,9 @@ export type IntentType =
   | 'training'
   | 'recruitment'
   | 'marketing_campaign'
-  | 'branch_branding';
+  | 'branch_branding'
+  | 'exploration'
+  | 'service_discovery';
 
 export interface DetectedIntent {
   primary_intent: IntentType;
@@ -29,6 +31,8 @@ interface IntentPattern {
 }
 
 const INTENT_PATTERNS: IntentPattern[] = [
+  { intent: 'exploration', keywords: ['informatii', 'informații', 'detalii', 'ce servicii', 'ce produse', 'ce putem', 'ce pot fi', 'orice informatie', 'orice informație', 'as fi interesat', 'aș fi interesat', 'sa primesc', 'să primesc', 'explorare', 'curios'], weight: 1.2 },
+  { intent: 'service_discovery', keywords: ['fond handicap', 'fond de handicap', 'unitate protejata', 'unitate protejată', 'achizitionate prin', 'achiziționate prin', 'servicii eligibile', 'produse eligibile'], weight: 1.2 },
   { intent: 'onboarding', keywords: ['onboarding', 'angajat nou', 'angajați noi', 'integrare', 'prima zi', 'welcome kit', 'welcome pack', 'nou venit', 'noi colegi'], weight: 1.0 },
   { intent: 'employer_branding', keywords: ['employer brand', 'brand angajator', 'brand intern', 'cultură organizațională', 'employee experience', 'employer value', 'evp'], weight: 1.0 },
   { intent: 'conference', keywords: ['conferinț', 'summit', 'congres', 'simpozion', 'workshop', 'seminar', 'speaker', 'panel'], weight: 1.0 },
@@ -43,6 +47,8 @@ const INTENT_PATTERNS: IntentPattern[] = [
 ];
 
 export const INTENT_LABELS: Record<IntentType, string> = {
+  exploration: 'Explorare servicii',
+  service_discovery: 'Descoperire servicii UP',
   onboarding: 'Onboarding angajați',
   employer_branding: 'Employer Branding',
   conference: 'Conferință / Summit',

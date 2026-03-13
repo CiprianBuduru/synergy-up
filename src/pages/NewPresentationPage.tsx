@@ -12,7 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, Plus, Users, Brain, Mail, ShieldCheck, CloudOff, Eye } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, Plus, Users, Brain, Mail, ShieldCheck, CloudOff, Eye, AlertTriangle, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { analyzeBrief } from '@/lib/eligibility-engine';
 import { searchCompanies, getCompanySearchResult } from '@/services/companySearchService';
 import { detectIntent, INTENT_LABELS } from '@/services/intentDetectionService';
@@ -52,6 +53,7 @@ export default function NewPresentationPage() {
   const [rawEmail, setRawEmail] = useState('');
   const [parsedEmail, setParsedEmail] = useState<ParsedEmailBrief | null>(null);
   const [emailFlowStatus, setEmailFlowStatus] = useState<('parsed' | 'brief_created' | 'rules_matched' | 'recommendations_generated')[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const company = data.getCompany(selectedCompanyId);
   const enrichment = data.getEnrichment(selectedCompanyId);
@@ -104,44 +106,82 @@ export default function NewPresentationPage() {
     if (!briefText.trim()) { setStep(3); return; }
     const analysis = analyzeBrief(briefText);
     setBriefAnalysis(analysis);
-    data.addBrief({
-      company_id: selectedCompanyId,
-      raw_brief: briefText,
-      requested_products_json: analysis.products,
-      requested_purpose: analysis.purpose,
-      target_audience: analysis.audience,
-      department_detected: analysis.department,
-      tone_recommended: analysis.tone,
-      eligibility_status: analysis.eligibility.verdict,
-    });
+
+    // Only save brief to DB if we have a valid company_id
+    if (selectedCompanyId) {
+      data.addBrief({
+        company_id: selectedCompanyId,
+        raw_brief: briefText,
+        requested_products_json: analysis.products,
+        requested_purpose: analysis.purpose,
+        target_audience: analysis.audience,
+        department_detected: analysis.department,
+        tone_recommended: analysis.tone,
+        eligibility_status: analysis.eligibility.verdict,
+      }).catch(err => {
+        console.warn('Brief save failed (non-blocking):', err);
+      });
+    }
     setTone(analysis.tone as PresentationTone);
     setStep(3);
   };
 
   const handleGenerate = async () => {
-    if (!company) return;
-    const calc = data.calculations.find(c => c.company_id === company.id);
-    const brief = data.briefs.find(b => b.company_id === company.id);
-    const tempId = crypto.randomUUID();
-    const slides = generatePresentation(tempId, company, enrichment || null, calc || null, brief || null, tone, {
-      signals: companySignals,
-      intent: detectedIntent,
-      pitchStrategy,
-      eligibility: briefAnalysis?.eligibility || null,
-      rankedProducts: rankedProducts.map(rp => rp),
-      rankedKits: rankedKits.map(rk => rk),
-    });
-    const pres = await data.addPresentation({
-      company_id: company.id, brief_id: brief?.id || null,
-      title: `Prezentare ${company.company_name}`,
-      objective: `Prezentare comercială pentru ${company.company_name}`,
-      tone, status: 'presentation_generated',
-      generated_summary: `Prezentare cu ${slides.length} slide-uri generată automat.`,
-    });
-    if (pres) {
+    // ── Validation before generation ──
+    if (!company) {
+      toast.error('Selectează o companie înainte de a genera prezentarea.');
+      return;
+    }
+    if (!briefText.trim()) {
+      toast.error('Scrie un brief înainte de a genera prezentarea.');
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      const calc = data.calculations.find(c => c.company_id === company.id);
+      const brief = data.briefs.find(b => b.company_id === company.id);
+      const tempId = crypto.randomUUID();
+      const slides = generatePresentation(tempId, company, enrichment || null, calc || null, brief || null, tone, {
+        signals: companySignals,
+        intent: detectedIntent,
+        pitchStrategy,
+        eligibility: briefAnalysis?.eligibility || null,
+        rankedProducts: rankedProducts.map(rp => rp),
+        rankedKits: rankedKits.map(rk => rk),
+      });
+
+      const pres = await data.addPresentation({
+        company_id: company.id, brief_id: brief?.id || null,
+        title: `Prezentare ${company.company_name}`,
+        objective: `Prezentare comercială pentru ${company.company_name}`,
+        tone, status: 'presentation_generated',
+        generated_summary: `Prezentare cu ${slides.length} slide-uri generată automat.`,
+      });
+
+      if (!pres) {
+        console.error('Presentation save failed: addPresentation returned null');
+        toast.error('Nu am putut salva prezentarea. Încearcă din nou.');
+        setIsGenerating(false);
+        return;
+      }
+
       const remappedSlides = slides.map(s => ({ ...s, presentation_id: pres.id }));
-      await data.setSlides(remappedSlides);
+      try {
+        await data.setSlides(remappedSlides);
+      } catch (slideErr) {
+        console.error('Slides save failed:', slideErr);
+        toast.error('Prezentarea a fost creată dar slide-urile nu au fost salvate. Poți regenera.');
+      }
+
       setGeneratedPresentationId(pres.id);
+      toast.success('Prezentare generată cu succes!');
+    } catch (err) {
+      console.error('Generation flow error:', err);
+      toast.error('A apărut o eroare la generare. Încearcă din nou.');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -693,8 +733,9 @@ export default function NewPresentationPage() {
                           <Button variant="outline" onClick={() => setStep(2)}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Înapoi
                           </Button>
-                          <Button onClick={handleGenerate} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg shadow-accent/25">
-                            <Sparkles className="mr-2 h-4 w-4" /> Generează prezentarea
+                          <Button onClick={handleGenerate} disabled={isGenerating} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg shadow-accent/25">
+                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                            {isGenerating ? 'Se generează...' : 'Generează prezentarea'}
                           </Button>
                         </div>
                       ) : (
