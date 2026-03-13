@@ -733,8 +733,9 @@ export default function NewPresentationPage() {
                           <Button variant="outline" onClick={() => setStep(2)}>
                             <ArrowLeft className="mr-2 h-4 w-4" /> Înapoi
                           </Button>
-                          <Button onClick={handleGenerate} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg shadow-accent/25">
-                            <Sparkles className="mr-2 h-4 w-4" /> Generează prezentarea
+                          <Button onClick={handleGenerate} disabled={isGenerating} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg shadow-accent/25">
+                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                            {isGenerating ? 'Se generează...' : 'Generează prezentarea'}
                           </Button>
                         </div>
                       ) : (
