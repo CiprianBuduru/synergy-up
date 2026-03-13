@@ -22,9 +22,10 @@ import type { Company, CompanyEnrichment } from '@/types';
 interface Props {
   company: Company;
   enrichment: CompanyEnrichment | null;
+  onResearchComplete?: (result: WebResearchResult) => void;
 }
 
-export default function PublicWebResearchPanel({ company, enrichment }: Props) {
+export default function PublicWebResearchPanel({ company, enrichment, onResearchComplete }: Props) {
   const [status, setStatus] = useState<WebResearchStatus>('idle');
   const [result, setResult] = useState<WebResearchResult | null>(null);
   const [error, setError] = useState<string | null>(null);
