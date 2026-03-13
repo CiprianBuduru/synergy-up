@@ -656,7 +656,7 @@ export default function NewPresentationPage() {
                   }}
                   onSkip={() => {
                     toast.info('Continuă fără verificare companie. Brief-ul rămâne în draft.');
-                    setEmailFlowStatus(prev => [...new Set([...prev, 'company_verified'])]);
+                    addFlowStep('company_verified');
                   }}
                 />
               )}
