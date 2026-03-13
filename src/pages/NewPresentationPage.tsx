@@ -168,17 +168,16 @@ export default function NewPresentationPage() {
     }
 
     // Generate commercial insights from gathered data
-    // Build a minimal OfficialWebsiteData from web research for signal detection
+    // Build OfficialWebsiteData from web research for signal detection
     const webDataForSignals = {
-      website_url: webResearchResult?.website_url || company.website || '',
-      extracted_text: '',
+      official_website: webResearchResult?.official_website || company.website || '',
+      about_company_text: webResearchResult?.about_company_text || '',
       visible_services: webResearchResult?.visible_services || [],
       visible_products: webResearchResult?.visible_products || [],
       careers_page_found: webResearchResult?.careers_page_found || false,
       contact_page_found: webResearchResult?.contact_page_found || false,
-      about_company_text: webResearchResult?.about_summary || '',
-      last_checked: new Date().toISOString(),
-      source_badge: 'Research insight' as const,
+      website_checked_at: webResearchResult?.website_checked_at || new Date().toISOString(),
+      source_badge: 'Official website' as const,
       overrides: {},
     };
     const signalReport = detectBusinessSignals(company, enrichment || null, webDataForSignals, companySignals);
