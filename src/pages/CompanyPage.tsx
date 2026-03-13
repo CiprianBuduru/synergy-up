@@ -82,6 +82,12 @@ export default function CompanyPage() {
     );
     setResearchInsights(resInsights);
 
+    // Step 5: Generate commercial insights
+    const commInsights = generateCommercialInsights(
+      company, enrichment, webData, null, signalReport, companySignals, intent, products, kits
+    );
+    setCommercialInsights(commInsights);
+
     // Generate pitch angles (integration point)
     generatePitchAngles(webData, signalReport, companySignals, intent);
 
