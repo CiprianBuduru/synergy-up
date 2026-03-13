@@ -29,6 +29,7 @@ import { presentationTemplates } from '@/lib/presentation-templates';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
 import EligibilityBadge from '@/components/EligibilityBadge';
 import { parseEmailBrief, type ParsedEmailBrief } from '@/services/emailBriefParserService';
+import * as dbAccess from '@/services/supabase-data';
 import type { PresentationTone, Company } from '@/types';
 
 export default function NewPresentationPage() {
