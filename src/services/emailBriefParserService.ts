@@ -404,19 +404,32 @@ function detectFlags(norm: string) {
 
 // ═══════════ REQUEST TYPE CLASSIFICATION ═══════════
 
-function classifyRequestType(norm: string, flags: ReturnType<typeof detectFlags>, nonProduct: string[]): { primary: RequestType; secondary: RequestType[] } {
+function classifyRequestType(norm: string, flags: ReturnType<typeof detectFlags>, nonProduct: string[], items: string[]): { primary: RequestType; secondary: RequestType[] } {
   const types: RequestType[] = [];
+
+  // Detect exploratory signals FIRST
+  const exploratorySignals = /informatii|informații|detalii|explorar|interes|curios|doresc\s+sa\s+aflu|ce\s+servicii|ce\s+produse|ce\s+putem|ce\s+pot\s+fi|orice\s+informatie|trimite.*informatii|trimite.*prezentare|as\s+fi\s+interesat|sa\s+primesc/.test(norm);
+  const hasFondHandicap = /fond\s+(de\s+)?handicap|fond\s+dizabilit|unitate\s+protejata/.test(norm);
 
   if (flags.asks_for_price || nonProduct.includes('oferta de pret')) types.push('pricing_request');
   if (flags.asks_for_presentation || nonProduct.includes('prezentare')) types.push('presentation_request');
   if (nonProduct.includes('documente justificative') || /autorizatie|certificat|dovada|acte\s+legale/.test(norm)) types.push('documents_request');
   if (/achizitie|achizitii|procurement|comanda|furniz|aprovizion/.test(norm)) types.push('procurement');
-  if (/informatii|informații|detalii|explorar|interes|curios|doresc\s+sa\s+aflu/.test(norm)) types.push('exploratory');
+  if (exploratorySignals) types.push('exploratory');
 
   // Remove duplicates
   const uniqueTypes = [...new Set(types)];
 
   if (uniqueTypes.length === 0) uniqueTypes.push('exploratory');
+
+  // KEY FIX: If no concrete product items were found AND exploratory signals exist,
+  // force exploratory as primary even if other types are present
+  const isExploratoryEmail = items.length === 0 && (exploratorySignals || hasFondHandicap);
+
+  if (isExploratoryEmail) {
+    const secondary = uniqueTypes.filter(t => t !== 'exploratory');
+    return { primary: 'exploratory', secondary };
+  }
 
   // If multiple distinct types detected → mixed
   const primary: RequestType = uniqueTypes.length > 1 ? 'mixed_request' : uniqueTypes[0];
