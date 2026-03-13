@@ -682,7 +682,7 @@ export default function NewPresentationPage() {
                         variant="ghost"
                         size="sm"
                         className="mt-2 text-xs text-muted-foreground"
-                        onClick={() => setEmailFlowStatus(prev => [...new Set([...prev, 'data_loaded'])])}
+                        onClick={() => addFlowStep('data_loaded')}
                       >
                         <CheckCircle2 className="mr-1 h-3 w-3" /> Confirmă date oficiale
                       </Button>
