@@ -106,16 +106,22 @@ export default function NewPresentationPage() {
     if (!briefText.trim()) { setStep(3); return; }
     const analysis = analyzeBrief(briefText);
     setBriefAnalysis(analysis);
-    data.addBrief({
-      company_id: selectedCompanyId,
-      raw_brief: briefText,
-      requested_products_json: analysis.products,
-      requested_purpose: analysis.purpose,
-      target_audience: analysis.audience,
-      department_detected: analysis.department,
-      tone_recommended: analysis.tone,
-      eligibility_status: analysis.eligibility.verdict,
-    });
+
+    // Only save brief to DB if we have a valid company_id
+    if (selectedCompanyId) {
+      data.addBrief({
+        company_id: selectedCompanyId,
+        raw_brief: briefText,
+        requested_products_json: analysis.products,
+        requested_purpose: analysis.purpose,
+        target_audience: analysis.audience,
+        department_detected: analysis.department,
+        tone_recommended: analysis.tone,
+        eligibility_status: analysis.eligibility.verdict,
+      }).catch(err => {
+        console.warn('Brief save failed (non-blocking):', err);
+      });
+    }
     setTone(analysis.tone as PresentationTone);
     setStep(3);
   };
