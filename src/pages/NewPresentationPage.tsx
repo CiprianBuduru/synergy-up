@@ -1,9 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useData } from '@/contexts/DataContext';
 import AppLayout from '@/components/AppLayout';
 import CompanyEnrichmentPanel from '@/components/CompanyEnrichmentPanel';
 import CompanyInsightsPanel from '@/components/CompanyInsightsPanel';
+import CommercialInsightsPanel from '@/components/CommercialInsightsPanel';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, Plus, Users, Brain, Mail, ShieldCheck, CloudOff, Eye, AlertTriangle, Loader2, HelpCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, Plus, Users, Brain, Mail, ShieldCheck, CloudOff, Eye, AlertTriangle, Loader2, HelpCircle, Globe, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { analyzeBrief } from '@/lib/eligibility-engine';
 import { searchCompanies, getCompanySearchResult } from '@/services/companySearchService';
@@ -22,6 +23,8 @@ import { analyzeCompanySignals } from '@/services/companySignalsService';
 import { getIndustryProfile } from '@/services/industryIntelligenceService';
 import { rankProducts, rankKits } from '@/services/solutionRankingService';
 import { generatePitchStrategy } from '@/services/pitchStrategyService';
+import { generateCommercialInsights, type CommercialInsights } from '@/services/commercialInsightsService';
+import { detectBusinessSignals } from '@/services/businessSignalDetectionService';
 import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
 import BriefRulesPanel from '@/components/BriefRulesPanel';
 import ExtractedBriefPanel from '@/components/ExtractedBriefPanel';
@@ -35,6 +38,15 @@ import EligibilityBadge from '@/components/EligibilityBadge';
 import { parseEmailBrief, type ParsedEmailBrief } from '@/services/emailBriefParserService';
 import * as dbAccess from '@/services/supabase-data';
 import type { PresentationTone, Company } from '@/types';
+import type { WebResearchResult } from '@/services/publicWebResearchService';
+
+// ═══════════════════════════════════════════════════════════════
+// WIZARD FLOW (9-step modular architecture):
+// ─────────────────────────────────────────────────────────────
+// Step 1 — INPUT:    Parse email / Select company + Confirm brief text
+// Step 2 — DATA:     Verify company → Official Data → Web Research → Commercial Insights
+// Step 3 — ANALYSIS: Analyze brief (using all gathered data) → Recommend → Generate
+// ═══════════════════════════════════════════════════════════════
 
 export default function NewPresentationPage() {
   const [searchParams] = useSearchParams();
@@ -42,6 +54,7 @@ export default function NewPresentationPage() {
   const data = useData();
   const preselectedCompanyId = searchParams.get('company');
 
+  // ── Core state ──
   const [step, setStep] = useState(1);
   const [inputMode, setInputMode] = useState<'company' | 'email'>('company');
   const [selectedCompanyId, setSelectedCompanyId] = useState(preselectedCompanyId || '');
@@ -57,8 +70,13 @@ export default function NewPresentationPage() {
   // Email parser state
   const [rawEmail, setRawEmail] = useState('');
   const [parsedEmail, setParsedEmail] = useState<ParsedEmailBrief | null>(null);
-  const [emailFlowStatus, setEmailFlowStatus] = useState<('parsed' | 'brief_created' | 'rules_matched' | 'recommendations_generated')[]>([]);
+  const [emailFlowStatus, setEmailFlowStatus] = useState<('parsed' | 'brief_confirmed' | 'company_verified' | 'data_loaded' | 'research_done' | 'insights_generated' | 'brief_analyzed' | 'recommendations_ready')[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  // Commercial insights state (generated in Step 2)
+  const [commercialInsights, setCommercialInsights] = useState<CommercialInsights | null>(null);
+  // Web research result (captured from PublicWebResearchPanel)
+  const [webResearchResult, setWebResearchResult] = useState<WebResearchResult | null>(null);
 
   const company = data.getCompany(selectedCompanyId);
   const enrichment = data.getEnrichment(selectedCompanyId);
@@ -89,7 +107,6 @@ export default function NewPresentationPage() {
   const findFuzzyCompanyMatch = (name: string, companies: Company[]) => {
     const normalizedTarget = normalizeCompanyName(name);
     if (normalizedTarget.length < 3) return undefined;
-
     return companies.find(c => {
       const normalizedCompany = normalizeCompanyName(c.company_name || '');
       const normalizedLegal = normalizeCompanyName(c.legal_name || '');
@@ -101,7 +118,7 @@ export default function NewPresentationPage() {
     });
   };
 
-  // ── Intelligence Core computations ──
+  // ── Intelligence Core (computed from confirmed company + brief) ──
   const companySignals = useMemo(() => {
     if (!company) return null;
     return analyzeCompanySignals(company, enrichment || null, briefText);
@@ -123,7 +140,7 @@ export default function NewPresentationPage() {
     return generatePitchStrategy(companySignals, detectedIntent, company?.industry || '', calc?.spendable_half_estimated);
   }, [companySignals, detectedIntent, company, data.calculations, selectedCompanyId]);
 
-  // Ranked products & kits using Intelligence Core
+  // Ranked products & kits — now computed in Step 3 AFTER brief analysis
   const rankedProducts = useMemo(() => {
     if (!company || !companySignals || !detectedIntent) return [];
     return rankProducts(data.products, company.industry, company.contact_department, detectedIntent, companySignals).slice(0, 6);
@@ -134,12 +151,45 @@ export default function NewPresentationPage() {
     return rankKits(data.kits, company.industry, company.contact_department, detectedIntent, companySignals).slice(0, 4);
   }, [company, companySignals, detectedIntent, data.kits]);
 
-  const handleAnalyzeBrief = () => {
-    if (!briefText.trim()) { setStep(3); return; }
+  // ── Step 2 → Step 3: Generate commercial insights then move to analysis ──
+  const handleProceedToAnalysis = useCallback(() => {
+    if (!company || !companySignals) {
+      toast.error('Confirmă compania și finalizează research-ul înainte de a continua.');
+      return;
+    }
+
+    // Generate commercial insights from gathered data
+    const signalReport = detectBusinessSignals(company, enrichment || null, webResearchResult);
+    const insights = generateCommercialInsights(
+      company,
+      enrichment || null,
+      null, // OfficialWebsiteData (separate module)
+      webResearchResult,
+      signalReport,
+      companySignals,
+      detectedIntent,
+      data.products,
+      data.kits,
+    );
+    setCommercialInsights(insights);
+    setEmailFlowStatus(prev => [...new Set([...prev, 'insights_generated'])]);
+
+    setStep(3);
+  }, [company, enrichment, companySignals, detectedIntent, webResearchResult, data.products, data.kits]);
+
+  // ── Step 3: Analyze brief using confirmed company + research data ──
+  const handleAnalyzeBrief = useCallback(() => {
+    if (!briefText.trim()) {
+      toast.info('Introdu un brief înainte de analiză.');
+      return;
+    }
+
     const analysis = analyzeBrief(briefText);
     setBriefAnalysis(analysis);
+    setTone(analysis.tone as PresentationTone);
+    setEmailFlowStatus(prev => [...new Set([...prev, 'brief_analyzed', 'recommendations_ready'])]);
 
-    // Only save brief to DB if we have a valid company_id
+    // Save brief to DB if company confirmed
     if (selectedCompanyId) {
       data.addBrief({
         company_id: selectedCompanyId,
@@ -150,18 +200,12 @@ export default function NewPresentationPage() {
         department_detected: analysis.department,
         tone_recommended: analysis.tone,
         eligibility_status: analysis.eligibility.verdict,
-      }).catch(err => {
-        console.warn('Brief save failed (non-blocking):', err);
-      });
+      }).catch(err => console.warn('Brief save failed (non-blocking):', err));
     }
-    setTone(analysis.tone as PresentationTone);
-    setStep(3);
-  };
+  }, [briefText, selectedCompanyId, data]);
 
   const handleGenerate = async () => {
     const companyId = selectedCompanyId?.trim();
-    console.log('[DEBUG] generate with companyId:', companyId || 'MISSING');
-
     if (!companyId) {
       toast.error('Selectează o companie înainte de a genera prezentarea.');
       return;
@@ -170,31 +214,23 @@ export default function NewPresentationPage() {
       toast.error('Scrie un brief înainte de a genera prezentarea.');
       return;
     }
+    if (!briefAnalysis) {
+      toast.error('Analizează brief-ul înainte de a genera prezentarea.');
+      return;
+    }
 
     setIsGenerating(true);
 
     try {
       let resolvedCompany = data.getCompany(companyId) || null;
-      console.log('[DEBUG] generate local company lookup:', resolvedCompany ? `${resolvedCompany.id} ${resolvedCompany.company_name}` : 'NOT_FOUND');
-
       if (!resolvedCompany) {
-        console.warn('[DEBUG] company missing in local state at generate, trying DB lookup...');
         const { data: dbCompanies, error: dbLookupError } = await dbAccess.fetchCompanies();
-
-        if (dbLookupError) {
-          console.error('[DEBUG] generate DB lookup error:', dbLookupError);
-        } else {
+        if (!dbLookupError) {
           resolvedCompany =
             dbCompanies.find(c => c.id === companyId) ||
             (parsedEmail?.company_name ? (findExactCompanyMatch(parsedEmail.company_name, dbCompanies) || findFuzzyCompanyMatch(parsedEmail.company_name, dbCompanies) || null) : null);
-
-          console.log('[DEBUG] generate DB lookup result:', resolvedCompany ? `${resolvedCompany.id} ${resolvedCompany.company_name}` : 'NOT_FOUND');
-
           if (resolvedCompany) {
-            if (resolvedCompany.id !== companyId) {
-              console.log('[DEBUG] generate corrected companyId from fallback:', companyId, '->', resolvedCompany.id);
-            }
-            setSelectedCompanyId(resolvedCompany.id);
+            if (resolvedCompany.id !== companyId) setSelectedCompanyId(resolvedCompany.id);
             void data.refresh();
           }
         }
@@ -204,8 +240,6 @@ export default function NewPresentationPage() {
         toast.error('Nu am putut rezolva compania selectată. Reapasă "Use this as Brief" sau selectează manual compania.');
         return;
       }
-
-      console.log('[DEBUG] generating presentation with companyId:', resolvedCompany.id);
 
       const resolvedEnrichment = data.getEnrichment(resolvedCompany.id) || null;
       const calc = data.calculations.find(c => c.company_id === resolvedCompany.id);
@@ -231,7 +265,6 @@ export default function NewPresentationPage() {
       });
 
       if (!pres) {
-        console.error('[DEBUG] Presentation save failed: addPresentation returned null');
         toast.error('Nu am putut salva prezentarea. Încearcă din nou.');
         return;
       }
@@ -240,14 +273,14 @@ export default function NewPresentationPage() {
       try {
         await data.setSlides(remappedSlides);
       } catch (slideErr) {
-        console.error('[DEBUG] Slides save failed:', slideErr);
-        toast.error('Prezentarea a fost creată dar slide-urile nu au fost salvate. Poți regenera.');
+        console.error('Slides save failed:', slideErr);
+        toast.error('Prezentarea a fost creată dar slide-urile nu au fost salvate.');
       }
 
       setGeneratedPresentationId(pres.id);
       toast.success('Prezentare generată cu succes!');
     } catch (err) {
-      console.error('[DEBUG] Generation flow error:', err);
+      console.error('Generation flow error:', err);
       toast.error('A apărut o eroare la generare. Încearcă din nou.');
     } finally {
       setIsGenerating(false);
@@ -303,13 +336,11 @@ export default function NewPresentationPage() {
     setEmailFlowStatus(['parsed']);
   };
 
-  // Resolution is now handled by CompanyResolutionPanel
-
+  // Step 1 → Step 2: Confirm brief text (from email or manual), move to data gathering
   const handleUseEmailAsBrief = () => {
     if (!parsedEmail) return;
 
     const parsedCompanyName = parsedEmail.company_name?.trim() || '';
-    console.log('[DEBUG] handleUseEmailAsBrief — company from parser:', parsedCompanyName || 'NONE');
 
     // Use resolution engine for auto-match (no creation, no DB writes)
     if (parsedCompanyName && !selectedCompanyId) {
@@ -318,52 +349,38 @@ export default function NewPresentationPage() {
         setSelectedCompanyId(resolution.bestMatch.company.id);
         toast.success(`Companie confirmată: ${resolution.bestMatch.company.company_name}`);
       } else if (resolution.status === 'likely_match' && resolution.bestMatch) {
-        // Don't auto-select likely matches — let the resolution panel handle it
         toast.info(`Potrivire probabilă: "${resolution.bestMatch.company.company_name}" — confirmă în panoul de verificare.`);
       } else {
         toast.info(`Companie "${parsedCompanyName}" — necesită verificare manuală.`);
       }
     }
 
-    // Set brief text and run analysis (NO company_id dependency)
-    setEmailFlowStatus(prev => {
-      const next = new Set(prev);
-      next.add('brief_created');
-      return Array.from(next) as typeof prev;
-    });
-
+    // Set brief text but DON'T analyze yet — analysis happens in Step 3
     const cleanedText = parsedEmail.cleaned_body;
     setBriefText(cleanedText);
+    setEmailFlowStatus(prev => [...new Set([...prev, 'brief_confirmed'])]);
 
-    const analysis = analyzeBrief(cleanedText);
-    setBriefAnalysis(analysis);
-    setEmailFlowStatus(prev => {
-      const next = new Set(prev);
-      next.add('brief_created');
-      next.add('rules_matched');
-      next.add('recommendations_generated');
-      return Array.from(next) as typeof prev;
-    });
-    setTone(analysis.tone as PresentationTone);
-
-    // Save brief to DB only if company is already resolved
-    if (selectedCompanyId) {
-      data.addBrief({
-        company_id: selectedCompanyId,
-        raw_brief: cleanedText,
-        requested_products_json: analysis.products,
-        requested_purpose: analysis.purpose,
-        target_audience: analysis.audience,
-        department_detected: analysis.department,
-        tone_recommended: analysis.tone,
-        eligibility_status: analysis.eligibility.verdict,
-      }).catch(err => console.warn('[DEBUG] Brief save failed (non-blocking):', err));
-    } else {
-      console.log('[DEBUG] Brief NOT saved to DB — no company_id yet (unverified company)');
-    }
-
+    // Move to Step 2: Data Gathering (verify company, research, insights)
     setStep(2);
   };
+
+  // Step 1 (company mode) → Step 2
+  const handleCompanyContinue = () => {
+    if (!selectedCompanyId) return;
+    setStep(2);
+  };
+
+  // ── Flow status indicators ──
+  const FLOW_STEPS = [
+    { key: 'parsed', label: '1. Email parsed' },
+    { key: 'brief_confirmed', label: '2. Brief confirmed' },
+    { key: 'company_verified', label: '3. Company verified' },
+    { key: 'data_loaded', label: '4. Official data' },
+    { key: 'research_done', label: '5. Web research' },
+    { key: 'insights_generated', label: '6. Commercial insights' },
+    { key: 'brief_analyzed', label: '7. Brief analyzed' },
+    { key: 'recommendations_ready', label: '8. Recommendations' },
+  ] as const;
 
   return (
     <AppLayout>
@@ -371,9 +388,9 @@ export default function NewPresentationPage() {
         {/* Wizard header */}
         <div className="relative flex items-center justify-between px-4">
           {[
-            { n: 1, label: inputMode === 'email' ? 'Email' : 'Companie', icon: inputMode === 'email' ? Mail : Building2 },
-            { n: 2, label: 'Brief & Analiză', icon: FileText },
-            { n: 3, label: 'Insights & Generare', icon: Brain },
+            { n: 1, label: inputMode === 'email' ? 'Email & Brief' : 'Companie & Brief', icon: inputMode === 'email' ? Mail : Building2 },
+            { n: 2, label: 'Verificare & Research', icon: Globe },
+            { n: 3, label: 'Analiză & Generare', icon: Brain },
           ].map(({ n, label, icon: Icon }) => (
             <div key={n} className="relative z-10 flex flex-col items-center gap-1.5">
               <div className={`flex h-10 w-10 items-center justify-center rounded-xl text-sm font-semibold transition-all duration-300 ${
@@ -392,6 +409,22 @@ export default function NewPresentationPage() {
             <div className="h-full bg-accent transition-all duration-500" style={{ width: `${((step - 1) / 2) * 100}%` }} />
           </div>
         </div>
+
+        {/* Flow status bar */}
+        {emailFlowStatus.length > 0 && (
+          <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 flex-wrap">
+            {FLOW_STEPS.map(({ key, label }) => (
+              <div key={key} className="flex items-center gap-1.5 text-xs">
+                {emailFlowStatus.includes(key as any) ? (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                ) : (
+                  <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/30" />
+                )}
+                <span className={emailFlowStatus.includes(key as any) ? 'text-foreground font-medium' : 'text-muted-foreground'}>{label}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Input mode tabs */}
         {step === 1 && (
@@ -416,7 +449,8 @@ export default function NewPresentationPage() {
         )}
 
         <AnimatePresence mode="wait">
-          {/* Step 1: Company or Email */}
+          {/* ═══════════ STEP 1: INPUT ═══════════ */}
+          {/* Company mode */}
           {step === 1 && inputMode === 'company' && (
             <motion.div key="s1-company" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
@@ -470,15 +504,6 @@ export default function NewPresentationPage() {
                                         <Eye className="h-2.5 w-2.5" /> Estimated
                                       </Badge>
                                     )}
-                                    {cEnrichment?.enrichment_status && (
-                                      <Badge variant="outline" className={`text-[8px] h-4 px-1 gap-0.5 ${
-                                        cEnrichment.enrichment_status === 'verified' ? 'border-success/30 text-success bg-success/5' :
-                                        cEnrichment.enrichment_status === 'estimated' ? 'border-warning/30 text-warning bg-warning/5' :
-                                        'border-destructive/30 text-destructive bg-destructive/5'
-                                      }`}>
-                                        {cEnrichment.enrichment_status === 'verified' ? 'Verificat' : cEnrichment.enrichment_status === 'estimated' ? 'Estimat' : 'Neconfirmat'}
-                                      </Badge>
-                                    )}
                                   </div>
                                 </div>
                                 {selectedCompanyId === c.id && <CheckCircle2 className="h-4 w-4 shrink-0 text-accent" />}
@@ -514,8 +539,20 @@ export default function NewPresentationPage() {
                         </div>
                       )}
 
+                      {/* Brief text input (company mode) */}
+                      <div className="space-y-2 pt-3 border-t border-border">
+                        <Label className="text-xs font-medium">Brief de la client (opțional)</Label>
+                        <Textarea
+                          placeholder="Ex: Avem nevoie de materiale de onboarding pentru 50 de angajați noi..."
+                          value={briefText}
+                          onChange={e => setBriefText(e.target.value)}
+                          rows={4}
+                          className="resize-none text-sm"
+                        />
+                      </div>
+
                       <div className="flex justify-end pt-2">
-                        <Button onClick={() => setStep(2)} disabled={!selectedCompanyId} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm shadow-accent/20">
+                        <Button onClick={handleCompanyContinue} disabled={!selectedCompanyId} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm shadow-accent/20">
                           Continuă <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                       </div>
@@ -540,30 +577,9 @@ export default function NewPresentationPage() {
             </motion.div>
           )}
 
-          {/* Step 1: Email mode */}
+          {/* Email mode */}
           {step === 1 && inputMode === 'email' && (
             <motion.div key="s1-email" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
-              {/* Analysis state feedback */}
-              {emailFlowStatus.length > 0 && (
-                <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
-                  {[
-                    { key: 'parsed', label: 'Email parsed' },
-                    { key: 'brief_created', label: 'Brief confirmed' },
-                    { key: 'rules_matched', label: 'Rules matched' },
-                    { key: 'recommendations_generated', label: 'Recommendations ready' },
-                  ].map(({ key, label }) => (
-                    <div key={key} className="flex items-center gap-1.5 text-xs">
-                      {emailFlowStatus.includes(key as any) ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                      ) : (
-                        <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/30" />
-                      )}
-                      <span className={emailFlowStatus.includes(key as any) ? 'text-foreground font-medium' : 'text-muted-foreground'}>{label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {/* Left: Email input */}
                 <Card className="border-0 shadow-md">
@@ -608,23 +624,10 @@ export default function NewPresentationPage() {
             </motion.div>
           )}
 
+          {/* ═══════════ STEP 2: DATA GATHERING ═══════════ */}
+          {/* Verify Company → Official Data → Web Research → Commercial Insights */}
           {step === 2 && (
             <motion.div key="s2" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
-              {/* Persistent feedback after Use this as Brief */}
-              {emailFlowStatus.includes('brief_created') && (
-                <div className="flex items-center gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                    <CheckCircle2 className="h-4 w-4" />
-                    Parsed brief
-                  </div>
-                  {emailFlowStatus.includes('rules_matched') && (
-                    <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                      <CheckCircle2 className="h-4 w-4" />
-                      Analysis updated
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* Company Resolution Panel */}
               {(parsedEmail?.company_name || inputMode === 'email') && (
@@ -636,38 +639,113 @@ export default function NewPresentationPage() {
                     if (id) {
                       setSelectedCompanyId(id);
                       const matched = data.getCompany(id);
-                      console.log('[DEBUG] company confirmed via resolution:', id, matched?.company_name);
                       toast.success(`Companie confirmată: ${matched?.company_name || id}`);
+                      setEmailFlowStatus(prev => [...new Set([...prev, 'company_verified'])]);
                     } else {
                       setSelectedCompanyId('');
-                      console.log('[DEBUG] company deselected via resolution');
                     }
                   }}
                   onSkip={() => {
-                    console.log('[DEBUG] company verification skipped — continuing with unverified');
                     toast.info('Continuă fără verificare companie. Brief-ul rămâne în draft.');
+                    setEmailFlowStatus(prev => [...new Set([...prev, 'company_verified'])]);
                   }}
                 />
               )}
 
-              {/* Official Company Data Panel — shown after company confirmed */}
-              {company && (
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  <OfficialCompanyDataPanel company={company} enrichment={enrichment || null} />
-                  <PublicWebResearchPanel company={company} enrichment={enrichment || null} />
+              {/* For company mode: show confirmed company info */}
+              {inputMode === 'company' && company && (
+                <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                  <span className="text-sm font-medium text-emerald-800">Companie selectată: {company.company_name}</span>
+                  {enrichment && (
+                    <Badge variant="outline" className="text-[10px]">{enrichment.industry_label} • {enrichment.employee_count_estimate || '?'} angajați</Badge>
+                  )}
                 </div>
               )}
 
+              {/* Official Company Data + Public Web Research */}
+              {company && (
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                  <div>
+                    <OfficialCompanyDataPanel company={company} enrichment={enrichment || null} />
+                    {!emailFlowStatus.includes('data_loaded') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2 text-xs text-muted-foreground"
+                        onClick={() => setEmailFlowStatus(prev => [...new Set([...prev, 'data_loaded'])])}
+                      >
+                        <CheckCircle2 className="mr-1 h-3 w-3" /> Confirmă date oficiale
+                      </Button>
+                    )}
+                  </div>
+                  <div>
+                    <PublicWebResearchPanel
+                      company={company}
+                      enrichment={enrichment || null}
+                      onResearchComplete={(result: WebResearchResult) => {
+                        setWebResearchResult(result);
+                        setEmailFlowStatus(prev => [...new Set([...prev, 'research_done'])]);
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Commercial Insights Panel (if already generated) */}
+              {commercialInsights && (
+                <CommercialInsightsPanel data={commercialInsights} />
+              )}
+
+              {/* Brief text preview (read-only in step 2) */}
+              {briefText && (
+                <Card className="border-0 shadow-md">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="font-display text-sm flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-primary" /> Brief confirmat
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-4">{briefText}</p>
+                    <p className="text-[10px] text-muted-foreground mt-2">Analiza brief-ului se va face în pasul următor, după finalizarea research-ului.</p>
+                  </CardContent>
+                </Card>
+              )}
+
+              <div className="flex justify-between pt-2">
+                <Button variant="outline" onClick={() => setStep(1)}>
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Înapoi
+                </Button>
+                <Button
+                  onClick={handleProceedToAnalysis}
+                  disabled={!company}
+                  className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm shadow-accent/20"
+                >
+                  <BarChart3 className="mr-2 h-4 w-4" /> Continuă la analiză <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ═══════════ STEP 3: ANALYSIS & GENERATION ═══════════ */}
+          {/* Analyze brief → Recommend products/kits → Generate presentation */}
+          {step === 3 && (
+            <motion.div key="s3" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-6">
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-                <div className="lg:col-span-3">
+                {/* Left: Brief Analysis + Generation */}
+                <div className="lg:col-span-3 space-y-6">
+
+                  {/* Brief Analysis Card */}
                   <Card className="border-0 shadow-md">
                     <CardHeader className="pb-2">
-                      <CardTitle className="font-display text-xl">Brief & Analiză</CardTitle>
-                      <p className="text-sm text-muted-foreground">Introdu brief-ul primit de la client. Sistemul analizează automat eligibilitatea.</p>
+                      <CardTitle className="font-display text-xl">Analiză Brief</CardTitle>
+                      <p className="text-sm text-muted-foreground">
+                        Analiza folosește: companie confirmată, date oficiale, research insights și textul brief-ului.
+                      </p>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <Textarea
-                        placeholder="Ex: Avem nevoie de materiale de onboarding pentru 50 de angajați noi. Vrem tricouri, agende, welcome cards și un pachet cadou pentru manageri..."
+                        placeholder="Ex: Avem nevoie de materiale de onboarding pentru 50 de angajați noi..."
                         value={briefText}
                         onChange={e => setBriefText(e.target.value)}
                         rows={5}
@@ -698,6 +776,14 @@ export default function NewPresentationPage() {
                           </Select>
                         </div>
                       </div>
+
+                      <Button
+                        onClick={handleAnalyzeBrief}
+                        disabled={!briefText.trim()}
+                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+                      >
+                        <Brain className="mr-2 h-4 w-4" /> Analizează brief-ul
+                      </Button>
 
                       {briefAnalysis && (
                         <div className="space-y-4">
@@ -748,142 +834,75 @@ export default function NewPresentationPage() {
                           </div>
                         </div>
                       )}
-
-                      <div className="flex justify-between pt-2">
-                        <Button variant="outline" onClick={() => setStep(1)}>
-                          <ArrowLeft className="mr-2 h-4 w-4" /> Înapoi
-                        </Button>
-                        <Button onClick={handleAnalyzeBrief} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm shadow-accent/20">
-                          {briefText.trim() ? 'Analizează & Continuă' : 'Continuă fără brief'} <ArrowRight className="ml-2 h-4 w-4" />
-                        </Button>
-                      </div>
                     </CardContent>
                   </Card>
-                </div>
 
-                {/* Right sidebar: live intent detection */}
-                <div className="lg:col-span-2 space-y-4">
-                  {detectedIntent && briefText.trim() && (
+                  {/* Generation Card — only after brief analysis */}
+                  {briefAnalysis && (
                     <Card className="border-0 shadow-md">
                       <CardHeader className="pb-2">
-                        <CardTitle className="font-display text-sm flex items-center gap-1.5">
-                          <Brain className="h-4 w-4 text-primary" /> Intent Detection (live)
-                        </CardTitle>
+                        <CardTitle className="font-display text-xl">Generare prezentare</CardTitle>
+                        <p className="text-sm text-muted-foreground">Verifică rezumatul și generează prezentarea comercială.</p>
                       </CardHeader>
-                      <CardContent className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">Primary</span>
-                          <Badge className="text-xs">{INTENT_LABELS[detectedIntent.primary_intent]}</Badge>
-                        </div>
-                        {detectedIntent.secondary_intent && (
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">Secondary</span>
-                            <Badge variant="secondary" className="text-xs">{INTENT_LABELS[detectedIntent.secondary_intent]}</Badge>
+                      <CardContent className="space-y-4">
+                        {company && (
+                          <div className="rounded-xl border bg-muted/30 p-5 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/5 font-display text-sm font-bold text-primary">{company.company_name.slice(0, 2).toUpperCase()}</div>
+                                <div>
+                                  <p className="font-display font-semibold text-foreground">{company.company_name}</p>
+                                  <p className="text-xs text-muted-foreground">{company.contact_name} • {company.contact_department} • Ton: {tone}</p>
+                                </div>
+                              </div>
+                              <EligibilityBadge status={briefAnalysis.eligibility.verdict} />
+                            </div>
+                            {enrichment && (
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                <span>{enrichment.industry_label}</span><span>•</span>
+                                <span>{enrichment.employee_count_estimate || '?'} angajați</span><span>•</span>
+                                <Badge variant={enrichment.enrichment_status === 'verified' ? 'default' : 'secondary'} className="text-[10px]">
+                                  {enrichment.enrichment_status === 'verified' ? '✓ Verificat' : '~ Estimat'}
+                                </Badge>
+                              </div>
+                            )}
+                            <div className="text-xs text-muted-foreground">
+                              Template: <span className="font-medium text-foreground">{presentationTemplates.find(t => t.id === selectedTemplate)?.name}</span>
+                            </div>
                           </div>
                         )}
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">Confidence</span>
-                          <span className="text-xs font-semibold text-foreground">{Math.round(detectedIntent.confidence * 100)}%</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
 
-                  {companySignals && company && (
-                    <Card className="border-0 shadow-md">
-                      <CardHeader className="pb-2">
-                        <CardTitle className="font-display text-sm flex items-center gap-1.5">
-                          <Sparkles className="h-4 w-4 text-accent" /> Quick Signals
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-1.5">
-                        {[
-                          { label: 'HR', level: companySignals.hr_relevance },
-                          { label: 'Marketing', level: companySignals.marketing_event_relevance },
-                          { label: 'Gifting', level: companySignals.corporate_gifting_relevance },
-                        ].map(s => (
-                          <div key={s.label} className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">{s.label}</span>
-                            <span className={`font-semibold uppercase ${s.level === 'high' ? 'text-emerald-600' : s.level === 'medium' ? 'text-amber-600' : 'text-muted-foreground'}`}>{s.level}</span>
+                        {!generatedPresentationId ? (
+                          <div className="flex justify-between pt-2">
+                            <Button variant="outline" onClick={() => setStep(2)}>
+                              <ArrowLeft className="mr-2 h-4 w-4" /> Înapoi
+                            </Button>
+                            <Button onClick={handleGenerate} disabled={isGenerating} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg shadow-accent/25">
+                              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                              {isGenerating ? 'Se generează...' : 'Generează prezentarea'}
+                            </Button>
                           </div>
-                        ))}
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Step 3: Insights + Generate */}
-          {step === 3 && (
-            <motion.div key="s3" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-6">
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-                {/* Left: Generate card */}
-                <div className="lg:col-span-3 space-y-6">
-                  <Card className="border-0 shadow-md">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="font-display text-xl">Generare prezentare</CardTitle>
-                      <p className="text-sm text-muted-foreground">Verifică rezumatul și generează prezentarea comercială.</p>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      {company && (
-                        <div className="rounded-xl border bg-muted/30 p-5 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/5 font-display text-sm font-bold text-primary">{company.company_name.slice(0, 2).toUpperCase()}</div>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                              <CheckCircle2 className="h-6 w-6 text-emerald-500" />
                               <div>
-                                <p className="font-display font-semibold text-foreground">{company.company_name}</p>
-                                <p className="text-xs text-muted-foreground">{company.contact_name} • {company.contact_department} • Ton: {tone}</p>
+                                <p className="font-medium text-emerald-800">Prezentare generată cu succes!</p>
+                                <p className="text-xs text-emerald-600">Poți edita sau vizualiza preview-ul.</p>
                               </div>
                             </div>
-                            {briefAnalysis && <EligibilityBadge status={briefAnalysis.eligibility.verdict} />}
-                          </div>
-                          {enrichment && (
-                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                              <span>{enrichment.industry_label}</span><span>•</span>
-                              <span>{enrichment.employee_count_estimate || '?'} angajați</span><span>•</span>
-                              <Badge variant={enrichment.enrichment_status === 'verified' ? 'default' : 'secondary'} className="text-[10px]">
-                                {enrichment.enrichment_status === 'verified' ? '✓ Verificat' : '~ Estimat'}
-                              </Badge>
-                            </div>
-                          )}
-                          <div className="text-xs text-muted-foreground">
-                            Template: <span className="font-medium text-foreground">{presentationTemplates.find(t => t.id === selectedTemplate)?.name}</span>
-                          </div>
-                        </div>
-                      )}
-
-                      {!generatedPresentationId ? (
-                        <div className="flex justify-between pt-2">
-                          <Button variant="outline" onClick={() => setStep(2)}>
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Înapoi
-                          </Button>
-                          <Button onClick={handleGenerate} disabled={isGenerating} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg shadow-accent/25">
-                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                            {isGenerating ? 'Se generează...' : 'Generează prezentarea'}
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                            <CheckCircle2 className="h-6 w-6 text-emerald-500" />
-                            <div>
-                              <p className="font-medium text-emerald-800">Prezentare generată cu succes!</p>
-                              <p className="text-xs text-emerald-600">Poți edita sau vizualiza preview-ul.</p>
+                            <div className="flex gap-3">
+                              <Button variant="outline" onClick={() => navigate(`/editor/${generatedPresentationId}`)}>Editează prezentarea</Button>
+                              <Button onClick={() => navigate(`/preview/${generatedPresentationId}`)} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm shadow-accent/20">Preview & Export</Button>
                             </div>
                           </div>
-                          <div className="flex gap-3">
-                            <Button variant="outline" onClick={() => navigate(`/editor/${generatedPresentationId}`)}>Editează prezentarea</Button>
-                            <Button onClick={() => navigate(`/preview/${generatedPresentationId}`)} className="bg-accent text-accent-foreground hover:bg-accent/90 shadow-sm shadow-accent/20">Preview & Export</Button>
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )}
 
                   {/* Ranked Products & Kits */}
-                  {!generatedPresentationId && (
+                  {briefAnalysis && !generatedPresentationId && (
                     <>
                       {rankedProducts.length > 0 && (
                         <div className="space-y-3">
@@ -933,9 +952,43 @@ export default function NewPresentationPage() {
                   )}
                 </div>
 
-                {/* Right: Company Insights Panel */}
-                <div className="lg:col-span-2">
-                  {companySignals && (
+                {/* Right sidebar: Intelligence panels */}
+                <div className="lg:col-span-2 space-y-4">
+                  {!briefAnalysis && (
+                    <div className="flex justify-start">
+                      <Button variant="outline" size="sm" onClick={() => setStep(2)}>
+                        <ArrowLeft className="mr-2 h-4 w-4" /> Înapoi la research
+                      </Button>
+                    </div>
+                  )}
+
+                  {detectedIntent && briefText.trim() && (
+                    <Card className="border-0 shadow-md">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="font-display text-sm flex items-center gap-1.5">
+                          <Brain className="h-4 w-4 text-primary" /> Intent Detection (live)
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Primary</span>
+                          <Badge className="text-xs">{INTENT_LABELS[detectedIntent.primary_intent]}</Badge>
+                        </div>
+                        {detectedIntent.secondary_intent && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">Secondary</span>
+                            <Badge variant="secondary" className="text-xs">{INTENT_LABELS[detectedIntent.secondary_intent]}</Badge>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Confidence</span>
+                          <span className="text-xs font-semibold text-foreground">{Math.round(detectedIntent.confidence * 100)}%</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {companySignals && company && (
                     <CompanyInsightsPanel
                       signals={companySignals}
                       intent={detectedIntent}
@@ -943,6 +996,31 @@ export default function NewPresentationPage() {
                       industryFocus={industryProfile?.pitch_focus || ''}
                       opportunityEstimate={data.calculations.find(c => c.company_id === selectedCompanyId)?.spendable_half_estimated}
                     />
+                  )}
+
+                  {/* Commercial Insights summary in sidebar */}
+                  {commercialInsights && (
+                    <Card className="border-0 shadow-md">
+                      <CardHeader className="pb-2">
+                        <CardTitle className="font-display text-sm flex items-center gap-1.5">
+                          <BarChart3 className="h-4 w-4 text-accent" /> Commercial Insights
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        <p className="text-xs text-muted-foreground">{commercialInsights.business_model_summary}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Confidence</span>
+                          <span className="text-xs font-semibold text-foreground">{commercialInsights.confidence_level}%</span>
+                        </div>
+                        {commercialInsights.recommended_pitch_angles.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {commercialInsights.recommended_pitch_angles.slice(0, 3).map((angle, i) => (
+                              <Badge key={i} variant="outline" className="text-[10px]">{angle}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   )}
                 </div>
               </div>
