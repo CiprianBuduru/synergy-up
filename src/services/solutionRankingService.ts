@@ -143,6 +143,8 @@ export function rankProducts(
 // ═══════════ KIT RANKING ═══════════
 
 const INTENT_KIT_AFFINITY: Record<IntentType, string[]> = {
+  exploration: ['HR', 'Office', 'Marketing', 'Corporate', 'Protocol'],
+  service_discovery: ['HR', 'Office', 'Marketing', 'Corporate', 'Protocol'],
   onboarding: ['HR', 'Office'],
   employer_branding: ['HR', 'Marketing'],
   conference: ['Marketing', 'Corporate'],

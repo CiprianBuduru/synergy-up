@@ -14,6 +14,8 @@ export interface PitchStrategy {
 }
 
 const INTENT_STRATEGIES: Record<IntentType, { headline: string; angle: string }> = {
+  exploration: { headline: 'Prezentare generală servicii eligibile', angle: 'Clientul explorează opțiunile disponibile prin unitate protejată. Prezentarea trebuie să acopere gama completă de categorii eligibile.' },
+  service_discovery: { headline: 'Descoperire servicii prin fond handicap', angle: 'Clientul caută să înțeleagă ce poate achiziționa prin fondul de handicap. Focusul trebuie pe categoriile eligibile și beneficiile fiscale.' },
   onboarding: { headline: 'Kituri de onboarding și welcome experience', angle: 'Onboarding-ul este o investiție în retenție. Kiturile branduite creează primele impresii memorabile.' },
   employer_branding: { headline: 'Materiale de employer branding', angle: 'Employer branding-ul puternic atrage talente. Materialele fizice branduite completează strategia digitală.' },
   conference: { headline: 'Materiale de conferință și summit', angle: 'Conferințele necesită materiale profesionale — de la badge-uri la mape, roll-up-uri și kituri speaker.' },
