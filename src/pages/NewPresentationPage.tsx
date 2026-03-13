@@ -367,7 +367,7 @@ export default function NewPresentationPage() {
     // Set brief text but DON'T analyze yet — analysis happens in Step 3
     const cleanedText = parsedEmail.cleaned_body;
     setBriefText(cleanedText);
-    setEmailFlowStatus(prev => [...new Set([...prev, 'brief_confirmed'])]);
+    addFlowStep('brief_confirmed');
 
     // Move to Step 2: Data Gathering (verify company, research, insights)
     setStep(2);
