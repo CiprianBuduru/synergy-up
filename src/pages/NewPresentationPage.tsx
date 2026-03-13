@@ -127,29 +127,61 @@ export default function NewPresentationPage() {
   };
 
   const handleGenerate = async () => {
-    if (!company) return;
-    const calc = data.calculations.find(c => c.company_id === company.id);
-    const brief = data.briefs.find(b => b.company_id === company.id);
-    const tempId = crypto.randomUUID();
-    const slides = generatePresentation(tempId, company, enrichment || null, calc || null, brief || null, tone, {
-      signals: companySignals,
-      intent: detectedIntent,
-      pitchStrategy,
-      eligibility: briefAnalysis?.eligibility || null,
-      rankedProducts: rankedProducts.map(rp => rp),
-      rankedKits: rankedKits.map(rk => rk),
-    });
-    const pres = await data.addPresentation({
-      company_id: company.id, brief_id: brief?.id || null,
-      title: `Prezentare ${company.company_name}`,
-      objective: `Prezentare comercială pentru ${company.company_name}`,
-      tone, status: 'presentation_generated',
-      generated_summary: `Prezentare cu ${slides.length} slide-uri generată automat.`,
-    });
-    if (pres) {
+    // ── Validation before generation ──
+    if (!company) {
+      toast.error('Selectează o companie înainte de a genera prezentarea.');
+      return;
+    }
+    if (!briefText.trim()) {
+      toast.error('Scrie un brief înainte de a genera prezentarea.');
+      return;
+    }
+
+    setIsGenerating(true);
+
+    try {
+      const calc = data.calculations.find(c => c.company_id === company.id);
+      const brief = data.briefs.find(b => b.company_id === company.id);
+      const tempId = crypto.randomUUID();
+      const slides = generatePresentation(tempId, company, enrichment || null, calc || null, brief || null, tone, {
+        signals: companySignals,
+        intent: detectedIntent,
+        pitchStrategy,
+        eligibility: briefAnalysis?.eligibility || null,
+        rankedProducts: rankedProducts.map(rp => rp),
+        rankedKits: rankedKits.map(rk => rk),
+      });
+
+      const pres = await data.addPresentation({
+        company_id: company.id, brief_id: brief?.id || null,
+        title: `Prezentare ${company.company_name}`,
+        objective: `Prezentare comercială pentru ${company.company_name}`,
+        tone, status: 'presentation_generated',
+        generated_summary: `Prezentare cu ${slides.length} slide-uri generată automat.`,
+      });
+
+      if (!pres) {
+        console.error('Presentation save failed: addPresentation returned null');
+        toast.error('Nu am putut salva prezentarea. Încearcă din nou.');
+        setIsGenerating(false);
+        return;
+      }
+
       const remappedSlides = slides.map(s => ({ ...s, presentation_id: pres.id }));
-      await data.setSlides(remappedSlides);
+      try {
+        await data.setSlides(remappedSlides);
+      } catch (slideErr) {
+        console.error('Slides save failed:', slideErr);
+        toast.error('Prezentarea a fost creată dar slide-urile nu au fost salvate. Poți regenera.');
+      }
+
       setGeneratedPresentationId(pres.id);
+      toast.success('Prezentare generată cu succes!');
+    } catch (err) {
+      console.error('Generation flow error:', err);
+      toast.error('A apărut o eroare la generare. Încearcă din nou.');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
