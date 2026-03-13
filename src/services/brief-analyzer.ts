@@ -57,11 +57,16 @@ export function detectIntents(text: string): string[] {
 export function analyzeBrief(briefText: string): BriefAnalysisV2 {
   const lower = briefText.toLowerCase();
 
-  // Detect products
+  // ── Check if this is an exploratory brief ──
+  const isExploratory = isExploratoryBrief(lower);
+
+  // Detect products (skip for exploratory briefs to avoid false positives from industry context)
   const detectedProducts: string[] = [];
-  for (const rule of productRules) {
-    for (const kw of rule.keywords) {
-      if (lower.includes(kw) && !detectedProducts.includes(kw)) detectedProducts.push(kw);
+  if (!isExploratory) {
+    for (const rule of productRules) {
+      for (const kw of rule.keywords) {
+        if (lower.includes(kw) && !detectedProducts.includes(kw)) detectedProducts.push(kw);
+      }
     }
   }
 
@@ -84,6 +89,43 @@ export function analyzeBrief(briefText: string): BriefAnalysisV2 {
   if (/\b(client|partener)\b/.test(lower)) audience = 'Clienți & Parteneri';
   else if (/\b(participant|invitat|speaker)\b/.test(lower)) audience = 'Participanți eveniment';
   else if (/\b(candidat|recrutare)\b/.test(lower)) audience = 'Candidați';
+
+  // ── Exploratory brief — special eligibility branch ──
+  if (isExploratory) {
+    const exploratoryEligibility: import('@/types').EligibilityResult = {
+      verdict: 'eligible',
+      explanation: 'Exploratory brief — No direct product request detected. Generating eligible categories and recommended kits.',
+      internal_operation_used: ['personalizare', 'branding', 'tipărire', 'ambalare / kituire'],
+      supporting_caen_codes: ['7311', '1812', '1723', '1814'],
+      converted_intent: 'explorare servicii',
+      alternative_products: [],
+      alternative_kits: ['Office Starter Kit', 'Branded Print Kit', 'Onboarding Starter Kit'],
+      sales_angle: 'Clientul explorează opțiunile eligibile. Recomandăm o prezentare generală cu toată gama de categorii disponibile.',
+      confidence_score: 0.7,
+      reasoning_steps: [{
+        item: 'Brief exploratoriu',
+        baseType: 'exploratory',
+        deliverableType: 'Prezentare generală',
+        operations: ['personalizare', 'branding', 'tipărire', 'ambalare / kituire'],
+        caen: ['7311', '1812', '1723', '1814'],
+        eligible: true,
+        explanation: 'Exploratory brief — no direct product request detected. Generating eligible categories and recommended kits.',
+      }],
+    };
+
+    return {
+      products: [],
+      purpose,
+      audience,
+      department,
+      tone,
+      eligibility: exploratoryEligibility,
+      detected_intents: ['Explorare servicii', ...intents],
+      brief_rules_matches: [],
+      recommended_kits_from_rules: [],
+      pitch_lines_from_rules: [],
+    };
+  }
 
   // ── Brief Rules Engine (primary) ──
   const rulesResult = analyzeBriefWithRules(briefText);
@@ -122,4 +164,37 @@ export function analyzeBrief(briefText: string): BriefAnalysisV2 {
     recommended_kits_from_rules: rulesResult.recommended_kits,
     pitch_lines_from_rules: rulesResult.pitch_lines,
   };
+}
+
+/** Detect if a brief is exploratory (no concrete product request) */
+function isExploratoryBrief(lower: string): boolean {
+  const exploratoryPatterns = [
+    /ce\s+servicii/,
+    /ce\s+produse/,
+    /ce\s+putem\s+achizi/,
+    /ce\s+pot\s+fi\s+achizi/,
+    /orice\s+informatie/,
+    /orice\s+informație/,
+    /trimite.*informati/,
+    /trimite.*prezentare/,
+    /sa\s+primesc.*informati/,
+    /să\s+primesc.*informați/,
+    /as\s+fi\s+interesat/,
+    /aș\s+fi\s+interesat/,
+  ];
+  const hasExploratorySignal = exploratoryPatterns.some(p => p.test(lower));
+
+  // Also check for fond de handicap + no specific products
+  const hasFondHandicap = /fond\s+(de\s+)?handicap/.test(lower);
+
+  // Check for concrete product keywords
+  const concreteProductPatterns = [
+    /tricou/, /agend/, /cani\b/, /cană/, /pix/, /marker/, /flyere/, /brosur/,
+    /roll-?up/, /banner/, /mapă/, /mape\b/, /papetărie/, /ecusoane/, /badge/,
+    /calendar/, /rucsac/, /umbrela/, /sticker/, /etichet/,
+  ];
+  const hasConcreteProduct = concreteProductPatterns.some(p => p.test(lower));
+
+  // It's exploratory if we have exploratory signals AND no concrete products
+  return (hasExploratorySignal || hasFondHandicap) && !hasConcreteProduct;
 }
