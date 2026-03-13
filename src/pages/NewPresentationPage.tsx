@@ -181,7 +181,7 @@ export default function NewPresentationPage() {
       data.kits,
     );
     setCommercialInsights(insights);
-    setEmailFlowStatus(prev => [...new Set([...prev, 'insights_generated'])]);
+    addFlowStep('insights_generated');
 
     setStep(3);
   }, [company, enrichment, companySignals, detectedIntent, webResearchResult, data.products, data.kits]);
