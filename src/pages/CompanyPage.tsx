@@ -205,6 +205,9 @@ export default function CompanyPage() {
 
             {/* Commercial Research Insights — shown after research */}
             {researchInsights && <CommercialResearchInsightsPanel data={researchInsights} />}
+
+            {/* Commercial Insights — shown after research */}
+            {commercialInsights && <CommercialInsightsPanel data={commercialInsights} />}
           </div>
 
           {/* Sidebar */}
