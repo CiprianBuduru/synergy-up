@@ -560,9 +560,9 @@ export default function NewPresentationPage() {
                 <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
                   {[
                     { key: 'parsed', label: 'Email parsed' },
-                    { key: 'brief_created', label: 'Brief created' },
+                    { key: 'brief_created', label: 'Brief confirmed' },
                     { key: 'rules_matched', label: 'Rules matched' },
-                    { key: 'recommendations_generated', label: 'Recommendations generated' },
+                    { key: 'recommendations_generated', label: 'Recommendations ready' },
                   ].map(({ key, label }) => (
                     <div key={key} className="flex items-center gap-1.5 text-xs">
                       {emailFlowStatus.includes(key as any) ? (
