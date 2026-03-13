@@ -648,6 +648,12 @@ export default function NewPresentationPage() {
                   }}
                 />
               )}
+
+              {/* Official Company Data Panel — shown after company confirmed */}
+              {company && (
+                <OfficialCompanyDataPanel company={company} enrichment={enrichment || null} />
+              )}
+
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
                 <div className="lg:col-span-3">
                   <Card className="border-0 shadow-md">
