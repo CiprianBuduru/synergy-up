@@ -46,6 +46,7 @@ export default function PublicWebResearchPanel({ company, enrichment, onResearch
     } else {
       setResult(res);
       setStatus('completed');
+      onResearchComplete?.(res);
     }
   };
 
