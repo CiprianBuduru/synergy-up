@@ -29,6 +29,7 @@ import { presentationTemplates } from '@/lib/presentation-templates';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
 import EligibilityBadge from '@/components/EligibilityBadge';
 import { parseEmailBrief, type ParsedEmailBrief } from '@/services/emailBriefParserService';
+import * as dbAccess from '@/services/supabase-data';
 import type { PresentationTone, Company } from '@/types';
 
 export default function NewPresentationPage() {
@@ -68,6 +69,33 @@ export default function NewPresentationPage() {
       c.legal_name.toLowerCase().includes(q)
     );
   }, [data.companies, companySearch]);
+
+  const normalizeCompanyName = (value: string) =>
+    value.toLowerCase().trim().replace(/\s+/g, ' ').replace(/[.,]/g, '');
+
+  const findExactCompanyMatch = (name: string, companies: Company[]) => {
+    const normalizedTarget = normalizeCompanyName(name);
+    return companies.find(c => {
+      const normalizedCompany = normalizeCompanyName(c.company_name || '');
+      const normalizedLegal = normalizeCompanyName(c.legal_name || '');
+      return normalizedCompany === normalizedTarget || normalizedLegal === normalizedTarget;
+    });
+  };
+
+  const findFuzzyCompanyMatch = (name: string, companies: Company[]) => {
+    const normalizedTarget = normalizeCompanyName(name);
+    if (normalizedTarget.length < 3) return undefined;
+
+    return companies.find(c => {
+      const normalizedCompany = normalizeCompanyName(c.company_name || '');
+      const normalizedLegal = normalizeCompanyName(c.legal_name || '');
+      return (
+        normalizedCompany.includes(normalizedTarget) ||
+        normalizedTarget.includes(normalizedCompany) ||
+        (!!normalizedLegal && (normalizedLegal.includes(normalizedTarget) || normalizedTarget.includes(normalizedLegal)))
+      );
+    });
+  };
 
   // ── Intelligence Core computations ──
   const companySignals = useMemo(() => {
@@ -127,9 +155,10 @@ export default function NewPresentationPage() {
   };
 
   const handleGenerate = async () => {
-    console.log('[DEBUG] handleGenerate — selectedCompanyId:', selectedCompanyId, 'company:', company?.company_name ?? 'NULL');
-    // ── Validation before generation ──
-    if (!company) {
+    const companyId = selectedCompanyId;
+    console.log('[DEBUG] generate with companyId:', companyId || 'MISSING');
+
+    if (!companyId) {
       toast.error('Selectează o companie înainte de a genera prezentarea.');
       return;
     }
@@ -141,10 +170,26 @@ export default function NewPresentationPage() {
     setIsGenerating(true);
 
     try {
-      const calc = data.calculations.find(c => c.company_id === company.id);
-      const brief = data.briefs.find(b => b.company_id === company.id);
+      let resolvedCompany = company;
+      if (!resolvedCompany) {
+        console.warn('[DEBUG] Company missing in local state at generate, trying DB lookup...');
+        const dbCompanies = await dbAccess.fetchCompanies();
+        resolvedCompany = dbCompanies.data.find(c => c.id === companyId) || null;
+        console.log('[DEBUG] Generate fallback company lookup:', resolvedCompany ? resolvedCompany.company_name : 'NOT_FOUND');
+        if (resolvedCompany) {
+          void data.refresh();
+        }
+      }
+
+      if (!resolvedCompany) {
+        toast.error('Selectează o companie înainte de a genera prezentarea.');
+        return;
+      }
+
+      const calc = data.calculations.find(c => c.company_id === resolvedCompany.id);
+      const brief = data.briefs.find(b => b.company_id === resolvedCompany.id);
       const tempId = crypto.randomUUID();
-      const slides = generatePresentation(tempId, company, enrichment || null, calc || null, brief || null, tone, {
+      const slides = generatePresentation(tempId, resolvedCompany, enrichment || null, calc || null, brief || null, tone, {
         signals: companySignals,
         intent: detectedIntent,
         pitchStrategy,
@@ -154,17 +199,18 @@ export default function NewPresentationPage() {
       });
 
       const pres = await data.addPresentation({
-        company_id: company.id, brief_id: brief?.id || null,
-        title: `Prezentare ${company.company_name}`,
-        objective: `Prezentare comercială pentru ${company.company_name}`,
-        tone, status: 'presentation_generated',
+        company_id: resolvedCompany.id,
+        brief_id: brief?.id || null,
+        title: `Prezentare ${resolvedCompany.company_name}`,
+        objective: `Prezentare comercială pentru ${resolvedCompany.company_name}`,
+        tone,
+        status: 'presentation_generated',
         generated_summary: `Prezentare cu ${slides.length} slide-uri generată automat.`,
       });
 
       if (!pres) {
-        console.error('Presentation save failed: addPresentation returned null');
+        console.error('[DEBUG] Presentation save failed: addPresentation returned null');
         toast.error('Nu am putut salva prezentarea. Încearcă din nou.');
-        setIsGenerating(false);
         return;
       }
 
@@ -172,14 +218,14 @@ export default function NewPresentationPage() {
       try {
         await data.setSlides(remappedSlides);
       } catch (slideErr) {
-        console.error('Slides save failed:', slideErr);
+        console.error('[DEBUG] Slides save failed:', slideErr);
         toast.error('Prezentarea a fost creată dar slide-urile nu au fost salvate. Poți regenera.');
       }
 
       setGeneratedPresentationId(pres.id);
       toast.success('Prezentare generată cu succes!');
     } catch (err) {
-      console.error('Generation flow error:', err);
+      console.error('[DEBUG] Generation flow error:', err);
       toast.error('A apărut o eroare la generare. Încearcă din nou.');
     } finally {
       setIsGenerating(false);
@@ -238,66 +284,119 @@ export default function NewPresentationPage() {
   const handleUseEmailAsBrief = async () => {
     if (!parsedEmail) return;
 
-    // Step 1: Resolve company — match existing or create new
+    const parsedCompanyName = parsedEmail.company_name?.trim() || '';
     let resolvedCompanyId = selectedCompanyId;
-    console.log('[DEBUG] handleUseEmailAsBrief — start, selectedCompanyId:', selectedCompanyId, 'parsed company_name:', parsedEmail.company_name);
+    let resolutionSource: 'exact_match' | 'fuzzy_match' | 'created' | 'lookup_after_create' | 'lookup_db' | null = null;
 
-    if (!resolvedCompanyId && parsedEmail.company_name) {
-      // Try to find existing company (fuzzy: includes match)
-      const nameL = parsedEmail.company_name.toLowerCase();
-      const existingMatch = data.companies.find(c =>
-        c.company_name.toLowerCase() === nameL ||
-        c.legal_name.toLowerCase() === nameL ||
-        c.company_name.toLowerCase().includes(nameL) ||
-        nameL.includes(c.company_name.toLowerCase())
-      );
+    console.log('[DEBUG] company detected from email:', parsedCompanyName || 'NONE');
+    console.log('[DEBUG] handleUseEmailAsBrief start, selectedCompanyId:', selectedCompanyId || 'NONE');
 
-      if (existingMatch) {
-        resolvedCompanyId = existingMatch.id;
-        setSelectedCompanyId(existingMatch.id);
-        console.log('[DEBUG] Existing company found:', existingMatch.id, existingMatch.company_name);
-        toast.success(`Companie selectată automat: ${existingMatch.company_name}`);
+    // 1) Exact match
+    if (!resolvedCompanyId && parsedCompanyName) {
+      const exactMatch = findExactCompanyMatch(parsedCompanyName, data.companies);
+      if (exactMatch) {
+        resolvedCompanyId = exactMatch.id;
+        resolutionSource = 'exact_match';
+        console.log('[DEBUG] company matched (exact):', exactMatch.id, exactMatch.company_name);
+      }
+    }
+
+    // 2) Fuzzy match
+    if (!resolvedCompanyId && parsedCompanyName) {
+      const fuzzyMatch = findFuzzyCompanyMatch(parsedCompanyName, data.companies);
+      if (fuzzyMatch) {
+        resolvedCompanyId = fuzzyMatch.id;
+        resolutionSource = 'fuzzy_match';
+        console.log('[DEBUG] company matched (fuzzy):', fuzzyMatch.id, fuzzyMatch.company_name);
+      }
+    }
+
+    // 3) Create company if still unresolved
+    if (!resolvedCompanyId && parsedCompanyName) {
+      try {
+        console.log('[DEBUG] company created attempt:', parsedCompanyName);
+        const createdCompany = await data.addCompany({
+          company_name: parsedCompanyName,
+          legal_name: parsedCompanyName,
+          website: '',
+          industry: parsedEmail.industry_hint || '',
+          company_size: '',
+          location: parsedEmail.location_hint || '',
+          description: '',
+          contact_name: parsedEmail.contact_name || '',
+          contact_role: parsedEmail.contact_role || '',
+          contact_department: 'General',
+          email: parsedEmail.contact_email || '',
+          phone: parsedEmail.contact_phone || '',
+          notes: 'Companie creată automat din email parser',
+        });
+
+        if (createdCompany?.id) {
+          resolvedCompanyId = createdCompany.id;
+          resolutionSource = 'created';
+          console.log('[DEBUG] company created:', createdCompany.id, createdCompany.company_name);
+        } else {
+          console.warn('[DEBUG] addCompany returned null/undefined, starting fallback lookup after create');
+        }
+      } catch (err) {
+        console.error('[DEBUG] company create failed:', err);
+      }
+    }
+
+    // 4) Hard guarantee fallback: lookup after create in local state
+    if (!resolvedCompanyId && parsedCompanyName) {
+      console.log('[DEBUG] company lookup after create (local state) for:', parsedCompanyName);
+      const localMatch =
+        findExactCompanyMatch(parsedCompanyName, data.companies) ||
+        findFuzzyCompanyMatch(parsedCompanyName, data.companies);
+
+      if (localMatch) {
+        resolvedCompanyId = localMatch.id;
+        resolutionSource = 'lookup_after_create';
+        console.log('[DEBUG] company lookup after create (local) matched:', localMatch.id, localMatch.company_name);
+      }
+    }
+
+    // 5) Hard guarantee fallback: lookup directly in DB + refresh state
+    if (!resolvedCompanyId && parsedCompanyName) {
+      console.log('[DEBUG] company lookup after create (DB) for:', parsedCompanyName);
+      const { data: dbCompanies, error: dbLookupError } = await dbAccess.fetchCompanies();
+      if (dbLookupError) {
+        console.error('[DEBUG] company lookup after create (DB) failed:', dbLookupError);
       } else {
-        // Create new company
-        try {
-          console.log('[DEBUG] Creating new company:', parsedEmail.company_name);
-          const newCompany = await data.addCompany({
-            company_name: parsedEmail.company_name,
-            legal_name: parsedEmail.company_name,
-            website: '',
-            industry: parsedEmail.industry_hint || '',
-            company_size: '',
-            location: parsedEmail.location_hint || '',
-            description: '',
-            contact_name: parsedEmail.contact_name || '',
-            contact_role: parsedEmail.contact_role || '',
-            contact_department: 'General',
-            email: parsedEmail.contact_email || '',
-            phone: parsedEmail.contact_phone || '',
-            notes: 'Companie creată automat din email parser',
-          });
-          if (newCompany) {
-            resolvedCompanyId = newCompany.id;
-            setSelectedCompanyId(newCompany.id);
-            console.log('[DEBUG] Company created:', newCompany.id, newCompany.company_name);
-            toast.success(`Companie creată automat: ${newCompany.company_name}`);
-          } else {
-            console.error('[DEBUG] addCompany returned null');
-            toast.error('Nu am putut crea compania. Selecteaz-o manual.');
-          }
-        } catch (err) {
-          console.error('[DEBUG] Company creation failed:', err);
-          toast.error('Eroare la crearea companiei. Selecteaz-o manual.');
+        const dbMatch =
+          findExactCompanyMatch(parsedCompanyName, dbCompanies) ||
+          findFuzzyCompanyMatch(parsedCompanyName, dbCompanies);
+
+        if (dbMatch) {
+          resolvedCompanyId = dbMatch.id;
+          resolutionSource = 'lookup_db';
+          console.log('[DEBUG] company lookup after create (DB) matched:', dbMatch.id, dbMatch.company_name);
+          await data.refresh();
         }
       }
     }
 
-    // If we still don't have a company and a name was detected, warn but continue
-    if (!resolvedCompanyId && parsedEmail.company_name) {
-      console.warn('[DEBUG] Company resolution failed — no resolvedCompanyId');
+    // If parser detected company but still unresolved, fail clearly
+    if (parsedCompanyName && !resolvedCompanyId) {
+      console.error('[DEBUG] company resolution failed for:', parsedCompanyName);
+      toast.error('Company resolution failed. Selectează manual compania și încearcă din nou.');
+      return;
     }
 
-    console.log('[DEBUG] resolvedCompanyId after resolution:', resolvedCompanyId);
+    if (resolvedCompanyId) {
+      setSelectedCompanyId(resolvedCompanyId);
+      console.log('[DEBUG] selectedCompanyId set:', resolvedCompanyId, 'source:', resolutionSource || 'preselected');
+      if (resolutionSource === 'created' || resolutionSource === 'lookup_after_create' || resolutionSource === 'lookup_db') {
+        toast.success('Company auto-created and selected.');
+      } else if (resolutionSource === 'exact_match' || resolutionSource === 'fuzzy_match') {
+        toast.success('Company auto-selected.');
+      }
+    }
+
+    if (!parsedCompanyName && !resolvedCompanyId) {
+      toast.error('Parserul nu a detectat compania. Selectează manual compania înainte de generare.');
+    }
 
     setEmailFlowStatus(prev => {
       const next = new Set(prev);
@@ -305,11 +404,9 @@ export default function NewPresentationPage() {
       return Array.from(next) as typeof prev;
     });
 
-    // Step 2: Set brief text and auto-analyze
     const cleanedText = parsedEmail.cleaned_body;
     setBriefText(cleanedText);
 
-    // Step 3: Run analysis immediately
     const analysis = analyzeBrief(cleanedText);
     setBriefAnalysis(analysis);
     setEmailFlowStatus(prev => {
@@ -321,7 +418,6 @@ export default function NewPresentationPage() {
     });
     setTone(analysis.tone as PresentationTone);
 
-    // Step 4: Save brief with resolved company ID
     if (resolvedCompanyId) {
       data.addBrief({
         company_id: resolvedCompanyId,
@@ -335,7 +431,6 @@ export default function NewPresentationPage() {
       }).catch(err => console.warn('[DEBUG] Brief save failed (non-blocking):', err));
     }
 
-    // Move to step 2 with analysis already done
     setStep(2);
   };
 
