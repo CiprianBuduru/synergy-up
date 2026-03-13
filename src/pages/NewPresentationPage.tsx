@@ -155,9 +155,10 @@ export default function NewPresentationPage() {
   };
 
   const handleGenerate = async () => {
-    console.log('[DEBUG] handleGenerate — selectedCompanyId:', selectedCompanyId, 'company:', company?.company_name ?? 'NULL');
-    // ── Validation before generation ──
-    if (!company) {
+    const companyId = selectedCompanyId;
+    console.log('[DEBUG] generate with companyId:', companyId || 'MISSING');
+
+    if (!companyId) {
       toast.error('Selectează o companie înainte de a genera prezentarea.');
       return;
     }
@@ -169,10 +170,26 @@ export default function NewPresentationPage() {
     setIsGenerating(true);
 
     try {
-      const calc = data.calculations.find(c => c.company_id === company.id);
-      const brief = data.briefs.find(b => b.company_id === company.id);
+      let resolvedCompany = company;
+      if (!resolvedCompany) {
+        console.warn('[DEBUG] Company missing in local state at generate, trying DB lookup...');
+        const dbCompanies = await dbAccess.fetchCompanies();
+        resolvedCompany = dbCompanies.data.find(c => c.id === companyId) || null;
+        console.log('[DEBUG] Generate fallback company lookup:', resolvedCompany ? resolvedCompany.company_name : 'NOT_FOUND');
+        if (resolvedCompany) {
+          void data.refresh();
+        }
+      }
+
+      if (!resolvedCompany) {
+        toast.error('Selectează o companie înainte de a genera prezentarea.');
+        return;
+      }
+
+      const calc = data.calculations.find(c => c.company_id === resolvedCompany.id);
+      const brief = data.briefs.find(b => b.company_id === resolvedCompany.id);
       const tempId = crypto.randomUUID();
-      const slides = generatePresentation(tempId, company, enrichment || null, calc || null, brief || null, tone, {
+      const slides = generatePresentation(tempId, resolvedCompany, enrichment || null, calc || null, brief || null, tone, {
         signals: companySignals,
         intent: detectedIntent,
         pitchStrategy,
@@ -182,17 +199,18 @@ export default function NewPresentationPage() {
       });
 
       const pres = await data.addPresentation({
-        company_id: company.id, brief_id: brief?.id || null,
-        title: `Prezentare ${company.company_name}`,
-        objective: `Prezentare comercială pentru ${company.company_name}`,
-        tone, status: 'presentation_generated',
+        company_id: resolvedCompany.id,
+        brief_id: brief?.id || null,
+        title: `Prezentare ${resolvedCompany.company_name}`,
+        objective: `Prezentare comercială pentru ${resolvedCompany.company_name}`,
+        tone,
+        status: 'presentation_generated',
         generated_summary: `Prezentare cu ${slides.length} slide-uri generată automat.`,
       });
 
       if (!pres) {
-        console.error('Presentation save failed: addPresentation returned null');
+        console.error('[DEBUG] Presentation save failed: addPresentation returned null');
         toast.error('Nu am putut salva prezentarea. Încearcă din nou.');
-        setIsGenerating(false);
         return;
       }
 
@@ -200,14 +218,14 @@ export default function NewPresentationPage() {
       try {
         await data.setSlides(remappedSlides);
       } catch (slideErr) {
-        console.error('Slides save failed:', slideErr);
+        console.error('[DEBUG] Slides save failed:', slideErr);
         toast.error('Prezentarea a fost creată dar slide-urile nu au fost salvate. Poți regenera.');
       }
 
       setGeneratedPresentationId(pres.id);
       toast.success('Prezentare generată cu succes!');
     } catch (err) {
-      console.error('Generation flow error:', err);
+      console.error('[DEBUG] Generation flow error:', err);
       toast.error('A apărut o eroare la generare. Încearcă din nou.');
     } finally {
       setIsGenerating(false);
