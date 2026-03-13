@@ -299,180 +299,45 @@ export default function NewPresentationPage() {
     setEmailFlowStatus(['parsed']);
   };
 
-  const handleUseEmailAsBrief = async () => {
+  // Company verification status derived from parsed email + selection
+  const companyVerificationStatus = useMemo(() => {
+    const parsedName = parsedEmail?.company_name?.trim() || '';
+    if (!parsedName && !selectedCompanyId) return 'no_company' as const;
+    if (selectedCompanyId) {
+      const matched = data.getCompany(selectedCompanyId);
+      if (matched) return 'verified' as const;
+    }
+    if (parsedName) return 'unverified' as const;
+    return 'no_company' as const;
+  }, [parsedEmail, selectedCompanyId, data]);
+
+  const handleUseEmailAsBrief = () => {
     if (!parsedEmail) return;
 
     const parsedCompanyName = parsedEmail.company_name?.trim() || '';
-    const selectedCompany = selectedCompanyId ? data.getCompany(selectedCompanyId) : undefined;
-    let resolvedCompanyId = '';
-    let resolutionSource: 'preselected_valid' | 'exact_match' | 'fuzzy_match' | 'created' | 'lookup_after_create' | 'lookup_db' | null = null;
+    console.log('[DEBUG] handleUseEmailAsBrief — company from parser:', parsedCompanyName || 'NONE');
 
-    console.log('[DEBUG] company detected from email:', parsedCompanyName || 'NONE');
-    console.log('[DEBUG] handleUseEmailAsBrief start, selectedCompanyId:', selectedCompanyId || 'NONE');
-
-    if (parsedCompanyName) {
-      // Respect preselection only if it matches parsed company
-      if (selectedCompany) {
-        const selectedMatchesParsed =
-          findExactCompanyMatch(parsedCompanyName, [selectedCompany]) ||
-          findFuzzyCompanyMatch(parsedCompanyName, [selectedCompany]);
-
-        if (selectedMatchesParsed) {
-          resolvedCompanyId = selectedCompany.id;
-          resolutionSource = 'preselected_valid';
-          console.log('[DEBUG] company matched (preselected):', selectedCompany.id, selectedCompany.company_name);
-        } else {
-          console.log('[DEBUG] preselected company differs from parsed company, forcing re-resolution:', selectedCompany.id, selectedCompany.company_name);
-        }
-      }
-
-      // 1) Exact match
-      if (!resolvedCompanyId) {
-        const exactMatch = findExactCompanyMatch(parsedCompanyName, data.companies);
-        if (exactMatch) {
-          resolvedCompanyId = exactMatch.id;
-          resolutionSource = 'exact_match';
-          console.log('[DEBUG] company matched (exact):', exactMatch.id, exactMatch.company_name);
-        }
-      }
-
-      // 2) Fuzzy match
-      if (!resolvedCompanyId) {
+    // Try to auto-match an EXISTING company (no creation)
+    if (parsedCompanyName && !selectedCompanyId) {
+      const exactMatch = findExactCompanyMatch(parsedCompanyName, data.companies);
+      if (exactMatch) {
+        setSelectedCompanyId(exactMatch.id);
+        console.log('[DEBUG] company matched (exact):', exactMatch.id, exactMatch.company_name);
+        toast.success(`Companie detectată: ${exactMatch.company_name}`);
+      } else {
         const fuzzyMatch = findFuzzyCompanyMatch(parsedCompanyName, data.companies);
         if (fuzzyMatch) {
-          resolvedCompanyId = fuzzyMatch.id;
-          resolutionSource = 'fuzzy_match';
+          setSelectedCompanyId(fuzzyMatch.id);
           console.log('[DEBUG] company matched (fuzzy):', fuzzyMatch.id, fuzzyMatch.company_name);
-        }
-      }
-
-      // 3) Create company if still unresolved
-      const companyPayload = {
-        company_name: parsedCompanyName,
-        legal_name: parsedCompanyName,
-        website: '',
-        industry: parsedEmail.industry_hint || '',
-        company_size: '',
-        location: parsedEmail.location_hint || '',
-        description: '',
-        contact_name: parsedEmail.contact_name || '',
-        contact_role: parsedEmail.contact_role || '',
-        contact_department: 'General',
-        email: parsedEmail.contact_email || '',
-        phone: parsedEmail.contact_phone || '',
-        notes: 'Companie creată automat din email parser',
-      };
-
-      if (!resolvedCompanyId) {
-        try {
-          console.log('[DEBUG] company create attempt:', parsedCompanyName);
-          const createdCompany = await data.addCompany(companyPayload);
-
-          if (createdCompany?.id) {
-            resolvedCompanyId = createdCompany.id;
-            resolutionSource = 'created';
-            console.log('[DEBUG] company created:', createdCompany.id, createdCompany.company_name);
-          } else {
-            console.warn('[DEBUG] addCompany returned null / undefined');
-          }
-        } catch (err) {
-          console.error('[DEBUG] company create failed:', err);
-        }
-      }
-
-      // 4) Re-lookup in local state (state may have updated after addCompany)
-      if (!resolvedCompanyId) {
-        console.log('[DEBUG] company relookup local after create:', parsedCompanyName);
-        const localMatch =
-          findExactCompanyMatch(parsedCompanyName, data.companies) ||
-          findFuzzyCompanyMatch(parsedCompanyName, data.companies);
-
-        if (localMatch) {
-          resolvedCompanyId = localMatch.id;
-          resolutionSource = 'lookup_after_create';
-          console.log('[DEBUG] company relookup local success:', localMatch.id, localMatch.company_name);
+          toast.success(`Companie detectată: ${fuzzyMatch.company_name}`);
         } else {
-          console.log('[DEBUG] company relookup local fail');
+          console.log('[DEBUG] company not found in DB — marking as unverified:', parsedCompanyName);
+          toast.info(`Companie detectată: "${parsedCompanyName}" — necesită verificare manuală.`);
         }
       }
-
-      // 5) Refresh data from DB and re-lookup
-      if (!resolvedCompanyId) {
-        try {
-          await data.refresh();
-          console.log('[DEBUG] company relookup data refresh:', parsedCompanyName);
-          const { data: dbCompanies, error: dbErr } = await dbAccess.fetchCompanies();
-
-          if (dbErr) {
-            console.error('[DEBUG] company relookup DB error:', dbErr);
-          } else {
-            const dbMatch =
-              findExactCompanyMatch(parsedCompanyName, dbCompanies) ||
-              findFuzzyCompanyMatch(parsedCompanyName, dbCompanies);
-
-            if (dbMatch) {
-              resolvedCompanyId = dbMatch.id;
-              resolutionSource = 'lookup_db';
-              console.log('[DEBUG] company relookup data refresh success:', dbMatch.id, dbMatch.company_name);
-            } else {
-              console.log('[DEBUG] company relookup data refresh fail');
-            }
-          }
-        } catch (refreshErr) {
-          console.error('[DEBUG] data refresh failed:', refreshErr);
-        }
-      }
-
-      // 6) LAST RESORT: create a local-only company so the flow never blocks
-      if (!resolvedCompanyId) {
-        console.warn('[DEBUG] all DB paths failed, creating local-only company fallback');
-        const localId = crypto.randomUUID();
-        const now = new Date().toISOString();
-        const localCompany = {
-          ...companyPayload,
-          id: localId,
-          created_at: now,
-          updated_at: now,
-        } as Company;
-        // Manually inject into DataContext won't work, but we can use addCompany in demo-like fashion
-        // We'll just set the ID and ensure handleGenerate can find it
-        try {
-          // Try one more addCompany - this time we know the exact payload works
-          const retryResult = await data.addCompany(companyPayload);
-          if (retryResult?.id) {
-            resolvedCompanyId = retryResult.id;
-            resolutionSource = 'created';
-            console.log('[DEBUG] company created (retry):', retryResult.id);
-          }
-        } catch {
-          // ignore
-        }
-
-        // If still nothing, we accept the local fallback won't persist but at least won't block
-        if (!resolvedCompanyId) {
-          console.error('[DEBUG] company resolution failed completely for:', parsedCompanyName);
-          toast.error(`Nu am putut crea compania "${parsedCompanyName}". Selecteaz-o manual sau verifică conexiunea.`);
-          return;
-        }
-      }
-    } else {
-      if (!selectedCompanyId) {
-        toast.error('Parserul nu a detectat compania. Selectează manual compania înainte de generare.');
-        return;
-      }
-      resolvedCompanyId = selectedCompanyId;
-      resolutionSource = 'preselected_valid';
     }
 
-    setSelectedCompanyId(resolvedCompanyId);
-    console.log('[DEBUG] selectedCompanyId set:', resolvedCompanyId, 'source:', resolutionSource);
-
-    if (resolutionSource === 'created' || resolutionSource === 'lookup_after_create' || resolutionSource === 'lookup_db') {
-      toast.success('Company auto-created and selected.');
-    } else if (resolutionSource === 'exact_match' || resolutionSource === 'fuzzy_match' || resolutionSource === 'preselected_valid') {
-      toast.success('Company auto-selected.');
-    }
-
+    // Set brief text and run analysis (NO company_id dependency)
     setEmailFlowStatus(prev => {
       const next = new Set(prev);
       next.add('brief_created');
@@ -493,16 +358,21 @@ export default function NewPresentationPage() {
     });
     setTone(analysis.tone as PresentationTone);
 
-    data.addBrief({
-      company_id: resolvedCompanyId,
-      raw_brief: cleanedText,
-      requested_products_json: analysis.products,
-      requested_purpose: analysis.purpose,
-      target_audience: analysis.audience,
-      department_detected: analysis.department,
-      tone_recommended: analysis.tone,
-      eligibility_status: analysis.eligibility.verdict,
-    }).catch(err => console.warn('[DEBUG] Brief save failed (non-blocking):', err));
+    // Save brief to DB only if company is already resolved
+    if (selectedCompanyId) {
+      data.addBrief({
+        company_id: selectedCompanyId,
+        raw_brief: cleanedText,
+        requested_products_json: analysis.products,
+        requested_purpose: analysis.purpose,
+        target_audience: analysis.audience,
+        department_detected: analysis.department,
+        tone_recommended: analysis.tone,
+        eligibility_status: analysis.eligibility.verdict,
+      }).catch(err => console.warn('[DEBUG] Brief save failed (non-blocking):', err));
+    } else {
+      console.log('[DEBUG] Brief NOT saved to DB — no company_id yet (unverified company)');
+    }
 
     setStep(2);
   };
