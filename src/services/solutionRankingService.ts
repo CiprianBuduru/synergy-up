@@ -38,6 +38,8 @@ const WEIGHTS = {
 
 // ═══════════ INTENT → PRODUCT TYPE MAP ═══════════
 const INTENT_PRODUCT_AFFINITY: Record<IntentType, string[]> = {
+  exploration: ['kit', 'promoțional', 'textile', 'print', 'papetărie', 'vizual'],
+  service_discovery: ['kit', 'promoțional', 'textile', 'print', 'papetărie', 'vizual'],
   onboarding: ['kit', 'textile', 'papetărie', 'promoțional'],
   employer_branding: ['textile', 'promoțional', 'eco', 'kit'],
   conference: ['print', 'promoțional', 'vizual', 'kit'],
