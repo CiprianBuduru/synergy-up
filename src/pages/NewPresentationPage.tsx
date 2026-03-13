@@ -127,6 +127,7 @@ export default function NewPresentationPage() {
   };
 
   const handleGenerate = async () => {
+    console.log('[DEBUG] handleGenerate — selectedCompanyId:', selectedCompanyId, 'company:', company?.company_name ?? 'NULL');
     // ── Validation before generation ──
     if (!company) {
       toast.error('Selectează o companie înainte de a genera prezentarea.');
