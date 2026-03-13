@@ -13,7 +13,9 @@ export type IntentType =
   | 'training'
   | 'recruitment'
   | 'marketing_campaign'
-  | 'branch_branding';
+  | 'branch_branding'
+  | 'exploration'
+  | 'service_discovery';
 
 export interface DetectedIntent {
   primary_intent: IntentType;
