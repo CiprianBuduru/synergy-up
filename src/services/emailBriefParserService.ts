@@ -493,7 +493,7 @@ export function parseEmailBrief(rawEmail: string): ParsedEmailBrief {
   const contact = extractContact(rawEmail, signature);
   const { items, nonProduct, categories } = extractItems(body, norm);
   const flags = detectFlags(norm);
-  const { primary, secondary } = classifyRequestType(norm, flags, nonProduct);
+  const { primary, secondary } = classifyRequestType(norm, flags, nonProduct, items);
   const docs = detectRequestedDocuments(norm);
 
   // Run through Brief Rules Engine
