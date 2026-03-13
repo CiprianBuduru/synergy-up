@@ -70,6 +70,33 @@ export default function NewPresentationPage() {
     );
   }, [data.companies, companySearch]);
 
+  const normalizeCompanyName = (value: string) =>
+    value.toLowerCase().trim().replace(/\s+/g, ' ').replace(/[.,]/g, '');
+
+  const findExactCompanyMatch = (name: string, companies: Company[]) => {
+    const normalizedTarget = normalizeCompanyName(name);
+    return companies.find(c => {
+      const normalizedCompany = normalizeCompanyName(c.company_name || '');
+      const normalizedLegal = normalizeCompanyName(c.legal_name || '');
+      return normalizedCompany === normalizedTarget || normalizedLegal === normalizedTarget;
+    });
+  };
+
+  const findFuzzyCompanyMatch = (name: string, companies: Company[]) => {
+    const normalizedTarget = normalizeCompanyName(name);
+    if (normalizedTarget.length < 3) return undefined;
+
+    return companies.find(c => {
+      const normalizedCompany = normalizeCompanyName(c.company_name || '');
+      const normalizedLegal = normalizeCompanyName(c.legal_name || '');
+      return (
+        normalizedCompany.includes(normalizedTarget) ||
+        normalizedTarget.includes(normalizedCompany) ||
+        (!!normalizedLegal && (normalizedLegal.includes(normalizedTarget) || normalizedTarget.includes(normalizedLegal)))
+      );
+    });
+  };
+
   // ── Intelligence Core computations ──
   const companySignals = useMemo(() => {
     if (!company) return null;
