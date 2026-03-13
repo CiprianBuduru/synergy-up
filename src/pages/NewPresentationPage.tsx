@@ -239,22 +239,27 @@ export default function NewPresentationPage() {
 
     // Step 1: Resolve company — match existing or create new
     let resolvedCompanyId = selectedCompanyId;
+    console.log('[DEBUG] handleUseEmailAsBrief — start, selectedCompanyId:', selectedCompanyId, 'parsed company_name:', parsedEmail.company_name);
 
     if (!resolvedCompanyId && parsedEmail.company_name) {
-      // Try to find existing company
+      // Try to find existing company (fuzzy: includes match)
       const nameL = parsedEmail.company_name.toLowerCase();
       const existingMatch = data.companies.find(c =>
         c.company_name.toLowerCase() === nameL ||
-        c.legal_name.toLowerCase() === nameL
+        c.legal_name.toLowerCase() === nameL ||
+        c.company_name.toLowerCase().includes(nameL) ||
+        nameL.includes(c.company_name.toLowerCase())
       );
 
       if (existingMatch) {
         resolvedCompanyId = existingMatch.id;
         setSelectedCompanyId(existingMatch.id);
+        console.log('[DEBUG] Existing company found:', existingMatch.id, existingMatch.company_name);
         toast.success(`Companie selectată automat: ${existingMatch.company_name}`);
       } else {
         // Create new company
         try {
+          console.log('[DEBUG] Creating new company:', parsedEmail.company_name);
           const newCompany = await data.addCompany({
             company_name: parsedEmail.company_name,
             legal_name: parsedEmail.company_name,
@@ -273,13 +278,25 @@ export default function NewPresentationPage() {
           if (newCompany) {
             resolvedCompanyId = newCompany.id;
             setSelectedCompanyId(newCompany.id);
+            console.log('[DEBUG] Company created:', newCompany.id, newCompany.company_name);
             toast.success(`Companie creată automat: ${newCompany.company_name}`);
+          } else {
+            console.error('[DEBUG] addCompany returned null');
+            toast.error('Nu am putut crea compania. Selecteaz-o manual.');
           }
-        } catch {
-          console.warn('Company creation failed, continuing without company');
+        } catch (err) {
+          console.error('[DEBUG] Company creation failed:', err);
+          toast.error('Eroare la crearea companiei. Selecteaz-o manual.');
         }
       }
     }
+
+    // If we still don't have a company and a name was detected, warn but continue
+    if (!resolvedCompanyId && parsedEmail.company_name) {
+      console.warn('[DEBUG] Company resolution failed — no resolvedCompanyId');
+    }
+
+    console.log('[DEBUG] resolvedCompanyId after resolution:', resolvedCompanyId);
 
     setEmailFlowStatus(prev => {
       const next = new Set(prev);
@@ -314,7 +331,7 @@ export default function NewPresentationPage() {
         department_detected: analysis.department,
         tone_recommended: analysis.tone,
         eligibility_status: analysis.eligibility.verdict,
-      }).catch(err => console.warn('Brief save failed (non-blocking):', err));
+      }).catch(err => console.warn('[DEBUG] Brief save failed (non-blocking):', err));
     }
 
     // Move to step 2 with analysis already done
