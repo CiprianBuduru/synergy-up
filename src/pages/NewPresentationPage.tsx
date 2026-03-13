@@ -155,7 +155,7 @@ export default function NewPresentationPage() {
   };
 
   const handleGenerate = async () => {
-    const companyId = selectedCompanyId;
+    const companyId = selectedCompanyId?.trim();
     console.log('[DEBUG] generate with companyId:', companyId || 'MISSING');
 
     if (!companyId) {
@@ -170,26 +170,44 @@ export default function NewPresentationPage() {
     setIsGenerating(true);
 
     try {
-      let resolvedCompany = company;
+      let resolvedCompany = data.getCompany(companyId) || null;
+      console.log('[DEBUG] generate local company lookup:', resolvedCompany ? `${resolvedCompany.id} ${resolvedCompany.company_name}` : 'NOT_FOUND');
+
       if (!resolvedCompany) {
-        console.warn('[DEBUG] Company missing in local state at generate, trying DB lookup...');
-        const dbCompanies = await dbAccess.fetchCompanies();
-        resolvedCompany = dbCompanies.data.find(c => c.id === companyId) || null;
-        console.log('[DEBUG] Generate fallback company lookup:', resolvedCompany ? resolvedCompany.company_name : 'NOT_FOUND');
-        if (resolvedCompany) {
-          void data.refresh();
+        console.warn('[DEBUG] company missing in local state at generate, trying DB lookup...');
+        const { data: dbCompanies, error: dbLookupError } = await dbAccess.fetchCompanies();
+
+        if (dbLookupError) {
+          console.error('[DEBUG] generate DB lookup error:', dbLookupError);
+        } else {
+          resolvedCompany =
+            dbCompanies.find(c => c.id === companyId) ||
+            (parsedEmail?.company_name ? (findExactCompanyMatch(parsedEmail.company_name, dbCompanies) || findFuzzyCompanyMatch(parsedEmail.company_name, dbCompanies) || null) : null);
+
+          console.log('[DEBUG] generate DB lookup result:', resolvedCompany ? `${resolvedCompany.id} ${resolvedCompany.company_name}` : 'NOT_FOUND');
+
+          if (resolvedCompany) {
+            if (resolvedCompany.id !== companyId) {
+              console.log('[DEBUG] generate corrected companyId from fallback:', companyId, '->', resolvedCompany.id);
+            }
+            setSelectedCompanyId(resolvedCompany.id);
+            void data.refresh();
+          }
         }
       }
 
       if (!resolvedCompany) {
-        toast.error('Selectează o companie înainte de a genera prezentarea.');
+        toast.error('Nu am putut rezolva compania selectată. Reapasă "Use this as Brief" sau selectează manual compania.');
         return;
       }
 
+      console.log('[DEBUG] generating presentation with companyId:', resolvedCompany.id);
+
+      const resolvedEnrichment = data.getEnrichment(resolvedCompany.id) || null;
       const calc = data.calculations.find(c => c.company_id === resolvedCompany.id);
       const brief = data.briefs.find(b => b.company_id === resolvedCompany.id);
       const tempId = crypto.randomUUID();
-      const slides = generatePresentation(tempId, resolvedCompany, enrichment || null, calc || null, brief || null, tone, {
+      const slides = generatePresentation(tempId, resolvedCompany, resolvedEnrichment, calc || null, brief || null, tone, {
         signals: companySignals,
         intent: detectedIntent,
         pitchStrategy,
