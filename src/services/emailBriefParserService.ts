@@ -202,18 +202,74 @@ function extractContact(raw: string, signature: string | null) {
   const emailMatch = combined.match(/[\w.+-]+@[\w.-]+\.\w{2,}/);
   const phoneMatch = combined.match(/(?:\+?\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}/);
 
-  // Company name: look for common patterns
+  // Company name: look for common patterns with priority order
   let companyName: string | null = null;
-  const companyPatterns = [
-    /(?:compania|firma|societatea|sc|s\.c\.)\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+s\.?r\.?l\.?|\s+s\.?a\.?|\s+s\.?r\.?l|\s*$)/im,
-    /(?:din\s+partea|behalf\s+of|represent[aă]m)\s+(?:companiei\s+)?([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+s\.?r\.?l\.?|\s+s\.?a\.?|\s*[,.])/im,
-    /(?:de\s+la)\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+(?:si|și|iar|\.|\,))/im,
-    /([A-ZÀ-Ž][\w\s&]{2,30}?)\s+s\.?r\.?l\.?/im,
-  ];
-  for (const pat of companyPatterns) {
-    const m = combined.match(pat);
-    if (m) { companyName = m[1].trim(); break; }
+  let companySource: string | null = null;
+
+  // Priority 1: Signature-based company detection (most reliable)
+  if (sigText) {
+    const sigLines = sigText.split('\n').map(l => l.trim()).filter(Boolean);
+    for (const line of sigLines.slice(0, 6)) {
+      // Look for lines that are just a company name (capitalized, short, no email/phone)
+      if (line.length >= 3 && line.length < 50 && !/@/.test(line) && !/\d{4,}/.test(line)) {
+        const srlMatch = line.match(/^([A-ZÀ-Ž][\w\s&.,-]{2,40}?)\s+s\.?r\.?l\.?/i);
+        if (srlMatch) {
+          companyName = srlMatch[1].trim();
+          companySource = 'signature (SRL)';
+          break;
+        }
+      }
+    }
   }
+
+  // Priority 2: "de la X" phrases in the body (very common in Romanian emails)
+  if (!companyName) {
+    const phrasePatterns = [
+      /(?:va\s+scriu|vă\s+scriu|scriu)\s+de\s+la\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s*[.,;!?\n]|\s+(?:si|și|iar|pentru|cu|sa|să|am|as|aș|va|vă|ne|un|o|vom|dorim|avem|suntem)\b)/im,
+      /(?:sunt|lucrez|activez)\s+de\s+la\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s*[.,;!?\n]|\s+(?:si|și|iar|pentru|cu|sa|să|am|as|aș|va|vă|ne|un|o|vom|dorim|avem|suntem)\b)/im,
+      /(?:reprezint|representam|reprezentăm)\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s*[.,;!?\n]|\s+(?:si|și|iar|pentru|cu|sa|să|am|as|aș|va|vă|ne|un|o|vom|dorim|avem|suntem)\b)/im,
+      /(?:compania|firma|societatea|sc|s\.c\.)\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+s\.?r\.?l\.?|\s+s\.?a\.?|\s*[.,;!?\n]|\s*$)/im,
+      /(?:din\s+partea|behalf\s+of)\s+(?:companiei\s+)?([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+s\.?r\.?l\.?|\s+s\.?a\.?|\s*[.,;!?\n])/im,
+      /(?:de\s+la)\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s*[.,;!?\n]|\s+(?:si|și|iar|pentru|cu|sa|să|am|as|aș|va|vă|ne|un|o|vom|dorim|avem|suntem)\b)/im,
+    ];
+    for (const pat of phrasePatterns) {
+      const m = combined.match(pat);
+      if (m) {
+        const candidate = m[1].trim();
+        // Validate: must start with uppercase, not be generic text
+        const genericWords = ['pe email', 'telefon', 'mail', 'mesaj', 'whatsapp', 'site', 'pagina', 'informatii', 'informații', 'email', 'aceast'];
+        const isGeneric = genericWords.some(g => candidate.toLowerCase().startsWith(g));
+        if (!isGeneric && candidate.length >= 3) {
+          companyName = candidate;
+          companySource = 'phrase';
+          break;
+        }
+      }
+    }
+  }
+
+  // Priority 3: SRL/SA pattern anywhere in text
+  if (!companyName) {
+    const srlMatch = combined.match(/([A-ZÀ-Ž][\w\s&]{2,30}?)\s+s\.?r\.?l\.?/im);
+    if (srlMatch) {
+      companyName = srlMatch[1].trim();
+      companySource = 'SRL pattern';
+    }
+  }
+
+  // Priority 4: Domain-based extraction from email
+  if (!companyName && emailMatch) {
+    const domain = emailMatch[0].split('@')[1];
+    if (domain && !['gmail.com', 'yahoo.com', 'hotmail.com', 'outlook.com', 'icloud.com', 'mail.com', 'protonmail.com'].includes(domain.toLowerCase())) {
+      const domainName = domain.split('.')[0];
+      if (domainName.length >= 3) {
+        companyName = domainName.charAt(0).toUpperCase() + domainName.slice(1);
+        companySource = 'domain';
+      }
+    }
+  }
+
+  console.log(`[DEBUG] company detection: name="${companyName}", source="${companySource}"`);
 
   // Contact name from signature (first line that looks like a name)
   let contactName: string | null = null;
