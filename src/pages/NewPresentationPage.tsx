@@ -16,6 +16,7 @@ import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Sea
 import { toast } from 'sonner';
 import { analyzeBrief } from '@/lib/eligibility-engine';
 import { searchCompanies, getCompanySearchResult } from '@/services/companySearchService';
+import { resolveCompany } from '@/services/companyResolutionService';
 import { detectIntent, INTENT_LABELS } from '@/services/intentDetectionService';
 import { analyzeCompanySignals } from '@/services/companySignalsService';
 import { getIndustryProfile } from '@/services/industryIntelligenceService';
@@ -24,6 +25,7 @@ import { generatePitchStrategy } from '@/services/pitchStrategyService';
 import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
 import BriefRulesPanel from '@/components/BriefRulesPanel';
 import ExtractedBriefPanel from '@/components/ExtractedBriefPanel';
+import CompanyResolutionPanel from '@/components/CompanyResolutionPanel';
 import { generatePresentation } from '@/lib/presentation-generator';
 import { presentationTemplates } from '@/lib/presentation-templates';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
@@ -299,17 +301,7 @@ export default function NewPresentationPage() {
     setEmailFlowStatus(['parsed']);
   };
 
-  // Company verification status derived from parsed email + selection
-  const companyVerificationStatus = useMemo(() => {
-    const parsedName = parsedEmail?.company_name?.trim() || '';
-    if (!parsedName && !selectedCompanyId) return 'no_company' as const;
-    if (selectedCompanyId) {
-      const matched = data.getCompany(selectedCompanyId);
-      if (matched) return 'verified' as const;
-    }
-    if (parsedName) return 'unverified' as const;
-    return 'no_company' as const;
-  }, [parsedEmail, selectedCompanyId, data]);
+  // Resolution is now handled by CompanyResolutionPanel
 
   const handleUseEmailAsBrief = () => {
     if (!parsedEmail) return;
@@ -317,23 +309,17 @@ export default function NewPresentationPage() {
     const parsedCompanyName = parsedEmail.company_name?.trim() || '';
     console.log('[DEBUG] handleUseEmailAsBrief — company from parser:', parsedCompanyName || 'NONE');
 
-    // Try to auto-match an EXISTING company (no creation)
+    // Use resolution engine for auto-match (no creation, no DB writes)
     if (parsedCompanyName && !selectedCompanyId) {
-      const exactMatch = findExactCompanyMatch(parsedCompanyName, data.companies);
-      if (exactMatch) {
-        setSelectedCompanyId(exactMatch.id);
-        console.log('[DEBUG] company matched (exact):', exactMatch.id, exactMatch.company_name);
-        toast.success(`Companie detectată: ${exactMatch.company_name}`);
+      const resolution = resolveCompany(parsedCompanyName, data.companies);
+      if (resolution.status === 'confirmed' && resolution.bestMatch) {
+        setSelectedCompanyId(resolution.bestMatch.company.id);
+        toast.success(`Companie confirmată: ${resolution.bestMatch.company.company_name}`);
+      } else if (resolution.status === 'likely_match' && resolution.bestMatch) {
+        // Don't auto-select likely matches — let the resolution panel handle it
+        toast.info(`Potrivire probabilă: "${resolution.bestMatch.company.company_name}" — confirmă în panoul de verificare.`);
       } else {
-        const fuzzyMatch = findFuzzyCompanyMatch(parsedCompanyName, data.companies);
-        if (fuzzyMatch) {
-          setSelectedCompanyId(fuzzyMatch.id);
-          console.log('[DEBUG] company matched (fuzzy):', fuzzyMatch.id, fuzzyMatch.company_name);
-          toast.success(`Companie detectată: ${fuzzyMatch.company_name}`);
-        } else {
-          console.log('[DEBUG] company not found in DB — marking as unverified:', parsedCompanyName);
-          toast.info(`Companie detectată: "${parsedCompanyName}" — necesită verificare manuală.`);
-        }
+        toast.info(`Companie "${parsedCompanyName}" — necesită verificare manuală.`);
       }
     }
 
@@ -624,43 +610,42 @@ export default function NewPresentationPage() {
             <motion.div key="s2" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} transition={{ duration: 0.3 }} className="space-y-4">
               {/* Persistent feedback after Use this as Brief */}
               {emailFlowStatus.includes('brief_created') && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                <div className="flex items-center gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Parsed brief
+                  </div>
+                  {emailFlowStatus.includes('rules_matched') && (
                     <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
                       <CheckCircle2 className="h-4 w-4" />
-                      Parsed brief
-                    </div>
-                    {emailFlowStatus.includes('rules_matched') && (
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                        <CheckCircle2 className="h-4 w-4" />
-                        Analysis updated
-                      </div>
-                    )}
-                  </div>
-                  {/* Company verification status */}
-                  {companyVerificationStatus === 'verified' && company && (
-                    <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
-                      <span className="text-xs font-medium text-emerald-700">Companie verificată: {company.company_name}</span>
-                    </div>
-                  )}
-                  {companyVerificationStatus === 'unverified' && (
-                    <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
-                      <AlertTriangle className="h-4 w-4 text-amber-600" />
-                      <span className="text-xs font-medium text-amber-700">
-                        Unverified company: "{parsedEmail?.company_name}" — selectează manual din listă sau creează compania înainte de generare.
-                      </span>
-                    </div>
-                  )}
-                  {companyVerificationStatus === 'no_company' && (
-                    <div className="flex items-center gap-2 rounded-xl border border-muted bg-muted/30 p-3">
-                      <HelpCircle className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-xs font-medium text-muted-foreground">
-                        Nicio companie detectată — selectează manual o companie înainte de generare.
-                      </span>
+                      Analysis updated
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* Company Resolution Panel */}
+              {(parsedEmail?.company_name || inputMode === 'email') && (
+                <CompanyResolutionPanel
+                  parsedCompanyName={parsedEmail?.company_name || ''}
+                  companies={data.companies}
+                  selectedCompanyId={selectedCompanyId}
+                  onConfirm={(id) => {
+                    if (id) {
+                      setSelectedCompanyId(id);
+                      const matched = data.getCompany(id);
+                      console.log('[DEBUG] company confirmed via resolution:', id, matched?.company_name);
+                      toast.success(`Companie confirmată: ${matched?.company_name || id}`);
+                    } else {
+                      setSelectedCompanyId('');
+                      console.log('[DEBUG] company deselected via resolution');
+                    }
+                  }}
+                  onSkip={() => {
+                    console.log('[DEBUG] company verification skipped — continuing with unverified');
+                    toast.info('Continuă fără verificare companie. Brief-ul rămâne în draft.');
+                  }}
+                />
               )}
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
                 <div className="lg:col-span-3">
