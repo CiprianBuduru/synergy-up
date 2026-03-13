@@ -300,17 +300,7 @@ export default function NewPresentationPage() {
     setEmailFlowStatus(['parsed']);
   };
 
-  // Company verification status derived from parsed email + selection
-  const companyVerificationStatus = useMemo(() => {
-    const parsedName = parsedEmail?.company_name?.trim() || '';
-    if (!parsedName && !selectedCompanyId) return 'no_company' as const;
-    if (selectedCompanyId) {
-      const matched = data.getCompany(selectedCompanyId);
-      if (matched) return 'verified' as const;
-    }
-    if (parsedName) return 'unverified' as const;
-    return 'no_company' as const;
-  }, [parsedEmail, selectedCompanyId, data]);
+  // Resolution is now handled by CompanyResolutionPanel
 
   const handleUseEmailAsBrief = () => {
     if (!parsedEmail) return;
