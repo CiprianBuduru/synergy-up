@@ -70,8 +70,17 @@ export default function NewPresentationPage() {
   // Email parser state
   const [rawEmail, setRawEmail] = useState('');
   const [parsedEmail, setParsedEmail] = useState<ParsedEmailBrief | null>(null);
-  const [emailFlowStatus, setEmailFlowStatus] = useState<('parsed' | 'brief_confirmed' | 'company_verified' | 'data_loaded' | 'research_done' | 'insights_generated' | 'brief_analyzed' | 'recommendations_ready')[]>([]);
+  type FlowStep = 'parsed' | 'brief_confirmed' | 'company_verified' | 'data_loaded' | 'research_done' | 'insights_generated' | 'brief_analyzed' | 'recommendations_ready';
+  const [emailFlowStatus, setEmailFlowStatus] = useState<FlowStep[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+
+  const addFlowStep = (...steps: FlowStep[]) => {
+    setEmailFlowStatus(prev => {
+      const next = new Set(prev);
+      steps.forEach(s => next.add(s));
+      return Array.from(next) as FlowStep[];
+    });
+  };
 
   // Commercial insights state (generated in Step 2)
   const [commercialInsights, setCommercialInsights] = useState<CommercialInsights | null>(null);
