@@ -196,7 +196,7 @@ export default function NewPresentationPage() {
     const analysis = analyzeBrief(briefText);
     setBriefAnalysis(analysis);
     setTone(analysis.tone as PresentationTone);
-    setEmailFlowStatus(prev => [...new Set([...prev, 'brief_analyzed', 'recommendations_ready'])]);
+    addFlowStep('brief_analyzed', 'recommendations_ready');
 
     // Save brief to DB if company confirmed
     if (selectedCompanyId) {
