@@ -26,6 +26,7 @@ import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
 import BriefRulesPanel from '@/components/BriefRulesPanel';
 import ExtractedBriefPanel from '@/components/ExtractedBriefPanel';
 import CompanyResolutionPanel from '@/components/CompanyResolutionPanel';
+import OfficialCompanyDataPanel from '@/components/OfficialCompanyDataPanel';
 import { generatePresentation } from '@/lib/presentation-generator';
 import { presentationTemplates } from '@/lib/presentation-templates';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
