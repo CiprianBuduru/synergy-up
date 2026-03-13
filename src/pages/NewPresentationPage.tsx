@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, Plus, Users, Brain, Mail, ShieldCheck, CloudOff, Eye, AlertTriangle, Loader2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Building2, FileText, Sparkles, CheckCircle2, Search, Plus, Users, Brain, Mail, ShieldCheck, CloudOff, Eye, AlertTriangle, Loader2, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { analyzeBrief } from '@/lib/eligibility-engine';
 import { searchCompanies, getCompanySearchResult } from '@/services/companySearchService';
