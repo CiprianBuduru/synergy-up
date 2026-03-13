@@ -212,6 +212,19 @@ export default function NewPresentationPage() {
     const result = parseEmailBrief(rawEmail);
     setParsedEmail(result);
     setEmailFlowStatus(['parsed']);
+
+    // Auto-match existing company by parsed name
+    if (result.company_name && !selectedCompanyId) {
+      const nameL = result.company_name.toLowerCase();
+      const match = data.companies.find(c =>
+        c.company_name.toLowerCase() === nameL ||
+        c.legal_name.toLowerCase() === nameL
+      );
+      if (match) {
+        setSelectedCompanyId(match.id);
+        toast.success(`Companie detectată: ${match.company_name}`);
+      }
+    }
   };
 
   const handleReparse = () => {
@@ -223,29 +236,51 @@ export default function NewPresentationPage() {
 
   const handleUseEmailAsBrief = async () => {
     if (!parsedEmail) return;
-    // Step 1: Auto-create company if extracted and not selected
-    if (!selectedCompanyId && parsedEmail.company_name) {
-      try {
-        const newCompany = await data.addCompany({
-          company_name: parsedEmail.company_name,
-          legal_name: parsedEmail.company_name,
-          website: '',
-          industry: parsedEmail.industry_hint || '',
-          company_size: '',
-          location: parsedEmail.location_hint || '',
-          description: '',
-          contact_name: parsedEmail.contact_name || '',
-          contact_role: parsedEmail.contact_role || '',
-          contact_department: 'General',
-          email: parsedEmail.contact_email || '',
-          phone: parsedEmail.contact_phone || '',
-          notes: 'Companie creată automat din email parser',
-        });
-        if (newCompany) setSelectedCompanyId(newCompany.id);
-      } catch {
-        console.warn('Company creation failed, continuing without company');
+
+    // Step 1: Resolve company — match existing or create new
+    let resolvedCompanyId = selectedCompanyId;
+
+    if (!resolvedCompanyId && parsedEmail.company_name) {
+      // Try to find existing company
+      const nameL = parsedEmail.company_name.toLowerCase();
+      const existingMatch = data.companies.find(c =>
+        c.company_name.toLowerCase() === nameL ||
+        c.legal_name.toLowerCase() === nameL
+      );
+
+      if (existingMatch) {
+        resolvedCompanyId = existingMatch.id;
+        setSelectedCompanyId(existingMatch.id);
+        toast.success(`Companie selectată automat: ${existingMatch.company_name}`);
+      } else {
+        // Create new company
+        try {
+          const newCompany = await data.addCompany({
+            company_name: parsedEmail.company_name,
+            legal_name: parsedEmail.company_name,
+            website: '',
+            industry: parsedEmail.industry_hint || '',
+            company_size: '',
+            location: parsedEmail.location_hint || '',
+            description: '',
+            contact_name: parsedEmail.contact_name || '',
+            contact_role: parsedEmail.contact_role || '',
+            contact_department: 'General',
+            email: parsedEmail.contact_email || '',
+            phone: parsedEmail.contact_phone || '',
+            notes: 'Companie creată automat din email parser',
+          });
+          if (newCompany) {
+            resolvedCompanyId = newCompany.id;
+            setSelectedCompanyId(newCompany.id);
+            toast.success(`Companie creată automat: ${newCompany.company_name}`);
+          }
+        } catch {
+          console.warn('Company creation failed, continuing without company');
+        }
       }
     }
+
     setEmailFlowStatus(prev => {
       const next = new Set(prev);
       next.add('brief_created');
@@ -267,6 +302,20 @@ export default function NewPresentationPage() {
       return Array.from(next) as typeof prev;
     });
     setTone(analysis.tone as PresentationTone);
+
+    // Step 4: Save brief with resolved company ID
+    if (resolvedCompanyId) {
+      data.addBrief({
+        company_id: resolvedCompanyId,
+        raw_brief: cleanedText,
+        requested_products_json: analysis.products,
+        requested_purpose: analysis.purpose,
+        target_audience: analysis.audience,
+        department_detected: analysis.department,
+        tone_recommended: analysis.tone,
+        eligibility_status: analysis.eligibility.verdict,
+      }).catch(err => console.warn('Brief save failed (non-blocking):', err));
+    }
 
     // Move to step 2 with analysis already done
     setStep(2);
