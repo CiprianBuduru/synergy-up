@@ -499,6 +499,25 @@ export function parseEmailBrief(rawEmail: string): ParsedEmailBrief {
   // Run through Brief Rules Engine
   const rulesResult = analyzeBriefWithRules(body);
 
+  // For exploratory emails with no concrete items, enrich non-product requests
+  const isExploratory = primary === 'exploratory' && items.length === 0;
+  const enrichedNonProduct = isExploratory
+    ? [...new Set([...nonProduct, 'prezentare', 'informații despre servicii', 'lista produse/servicii eligibile'])]
+    : nonProduct;
+
+  // Industry-specific recommendations for exploratory emails
+  let exploratoryProducts = rulesResult.recommended_products;
+  let exploratoryKits = rulesResult.recommended_kits;
+  let exploratoryPitchLines = rulesResult.pitch_lines;
+
+  if (isExploratory && contact.industry_hint) {
+    const indHint = (contact.industry_hint || '').toLowerCase();
+    const { products: indProducts, kits: indKits, pitchLines: indPitch } = getExploratoryRecommendations(indHint);
+    exploratoryProducts = [...new Set([...exploratoryProducts, ...indProducts])];
+    exploratoryKits = [...new Set([...exploratoryKits, ...indKits])];
+    exploratoryPitchLines = [...new Set([...exploratoryPitchLines, ...indPitch])];
+  }
+
   return {
     ...contact,
     requested_items: items,
@@ -507,20 +526,52 @@ export function parseEmailBrief(rawEmail: string): ParsedEmailBrief {
     primary_request_type: primary,
     secondary_request_types: secondary,
     requested_documents: docs,
-    requested_non_product_requests: nonProduct,
+    requested_non_product_requests: enrichedNonProduct,
     ...flags,
-    suggested_presentation_type: suggestPresentationType(primary, items),
-    suggested_email_response_type: suggestEmailResponseType(primary, docs, flags),
-    short_response_summary: buildSummary(contact, items, nonProduct, primary, secondary),
+    suggested_presentation_type: isExploratory ? 'general_exploratory' : suggestPresentationType(primary, items),
+    suggested_email_response_type: isExploratory ? 'intro_response' : suggestEmailResponseType(primary, docs, flags),
+    short_response_summary: buildSummary(contact, items, enrichedNonProduct, primary, secondary),
     brief_rules_matches: rulesResult.matches,
-    recommended_products: rulesResult.recommended_products,
-    recommended_kits: rulesResult.recommended_kits,
-    pitch_lines: rulesResult.pitch_lines,
-    notes: '',
+    recommended_products: exploratoryProducts,
+    recommended_kits: exploratoryKits,
+    pitch_lines: exploratoryPitchLines,
+    notes: isExploratory ? 'Exploratory brief — no direct product request detected. Generating eligible categories and recommended kits.' : '',
     raw_email_body: rawEmail,
     cleaned_body: body,
     signature_block: signature,
   };
+}
+
+// ═══════════ EXPLORATORY RECOMMENDATIONS BY INDUSTRY ═══════════
+
+interface ExploratoryRecs {
+  products: string[];
+  kits: string[];
+  pitchLines: string[];
+}
+
+const INDUSTRY_EXPLORATORY_RECS: Record<string, ExploratoryRecs> = {
+  horeca: {
+    products: ['textile personalizate', 'șorțuri personalizate', 'materiale print', 'badge-uri', 'roll-up', 'mape', 'papetărie personalizată', 'produse promo pentru evenimente'],
+    kits: ['Event Promotion Kit', 'Team Event Kit', 'Branded Print Kit', 'HoReCa Branding Kit'],
+    pitchLines: ['Materiale branduite pentru echipă și evenimente — 100% eligibile prin unitate protejată', 'Șorțuri, tricouri și badge-uri personalizate pentru staff HoReCa', 'Kituri de eveniment cu materiale print și promo branduite'],
+  },
+  events: {
+    products: ['textile personalizate', 'șorțuri personalizate', 'materiale print', 'badge-uri', 'roll-up', 'mape', 'papetărie personalizată', 'produse promo pentru evenimente'],
+    kits: ['Event Promotion Kit', 'Team Event Kit', 'Branded Print Kit', 'HoReCa Branding Kit'],
+    pitchLines: ['Suport complet pentru evenimente: bannere, badge-uri, mape, materiale print', 'Kituri event branduite realizate intern — eligibile 100%'],
+  },
+  general: {
+    products: ['textile personalizate', 'materiale print', 'papetărie personalizată', 'produse promo branduite', 'mape', 'agende'],
+    kits: ['Office Starter Kit', 'Branded Print Kit', 'Onboarding Starter Kit'],
+    pitchLines: ['Gamă completă de produse eligibile prin unitate protejată', 'Personalizare, tipărire și ambalare — operațiuni realizate integral intern'],
+  },
+};
+
+function getExploratoryRecommendations(industryHint: string): ExploratoryRecs {
+  if (/horeca|restaurant|hotel|catering/.test(industryHint)) return INDUSTRY_EXPLORATORY_RECS.horeca;
+  if (/event|eveniment/.test(industryHint)) return INDUSTRY_EXPLORATORY_RECS.events;
+  return INDUSTRY_EXPLORATORY_RECS.general;
 }
 
 // Labels
