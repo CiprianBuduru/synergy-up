@@ -271,25 +271,116 @@ function extractContact(raw: string, signature: string | null) {
 
   console.log(`[DEBUG] company detection: name="${companyName}", source="${companySource}"`);
 
-  // Contact name from signature (first line that looks like a name)
+  // ── Enhanced contact name & role extraction from signature ──
   let contactName: string | null = null;
   let contactRole: string | null = null;
+  let contactNameSource: string | null = null;
+  let contactRoleSource: string | null = null;
+
+  // Helper: is this line an email, phone, website, or address?
+  const isNoiseLine = (line: string): boolean => {
+    if (/@/.test(line)) return true;                            // email
+    if (/\d{4,}/.test(line.replace(/\s/g, ''))) return true;   // phone (4+ digits)
+    if (/^(https?:\/\/|www\.)/.test(line)) return true;        // url
+    if (/\.(ro|com|org|net|eu|io)\s*$/i.test(line)) return true; // domain
+    // Address patterns: street numbers, sectors, postal codes
+    if (/\b(nr\.|str\.|bd\.|bdul|b-dul|sector|sect\.|cod\s*postal|jude[tț])\b/i.test(line)) return true;
+    if (/\b\d{6}\b/.test(line)) return true; // postal code
+    return false;
+  };
+
+  // Helper: does this line look like a person name? (2-4 capitalized words, no noise)
+  const looksLikeName = (line: string): boolean => {
+    if (line.length < 3 || line.length > 50) return false;
+    if (isNoiseLine(line)) return false;
+    // Must have 2-4 words, each starting with uppercase
+    const words = line.split(/\s+/);
+    if (words.length < 2 || words.length > 4) return false;
+    return words.every(w => /^[A-ZÀ-Ž]/.test(w));
+  };
+
+  // Helper: does this line look like a job title/role?
+  const ROLE_KEYWORDS = /\b(manager|director|executive|specialist|coordinator|coordonator|assistant|asistent|responsabil|sef|șef|consultant|administrator|supervisor|officer|lead|head|chief|president|vp|ceo|cfo|cto|coo|hr|marketing|procurement|achizi[tț]ii|sales|vanzari|vânzări|event|general|comercial|financiar|juridic|logistic[aă]?|operațional|operational|tehnic|it|administrativ|comunicare|relatii|relații|partener|business\s*development|account|key\s*account)\b/i;
+
+  const looksLikeRole = (line: string): boolean => {
+    if (line.length < 3 || line.length > 80) return false;
+    if (isNoiseLine(line)) return false;
+    return ROLE_KEYWORDS.test(line);
+  };
+
   if (sigText) {
     const sigLines = sigText.split('\n').map(l => l.trim()).filter(Boolean);
-    for (const line of sigLines.slice(0, 4)) {
-      if (line.length < 40 && /^[A-ZÀ-Ž][a-zà-ž]+\s+[A-ZÀ-Ž]/.test(line) && !/@/.test(line) && !/\d{3}/.test(line)) {
+
+    // Skip greeting/separator lines at the start of signature
+    const GREETING_SKIP = /^(--+|_{3,}|cu\s+stima|cu\s+respect|best\s+regards|kind\s+regards|regards|multumesc|mulțumesc|cordial|toate\s+cele\s+bune|o\s+zi\s+buna|o\s+zi\s+bună|va\s+multumesc|vă\s+mulțumesc|sent\s+from|trimis\s+de)\b/i;
+
+    let contentLines: string[] = [];
+    let skippedGreeting = false;
+    for (const line of sigLines) {
+      if (!skippedGreeting && GREETING_SKIP.test(line)) {
+        skippedGreeting = true;
+        continue;
+      }
+      if (!skippedGreeting && line === '') continue;
+      skippedGreeting = true;
+      contentLines.push(line);
+    }
+
+    // If no greeting was skipped, use all lines
+    if (contentLines.length === 0) contentLines = sigLines;
+
+    // Strategy 1: Find name as first non-noise line, role as next
+    for (let i = 0; i < Math.min(contentLines.length, 6); i++) {
+      const line = contentLines[i];
+      if (!contactName && looksLikeName(line)) {
         contactName = line;
+        contactNameSource = `signature line ${i}`;
+        // Check next line for role
+        if (i + 1 < contentLines.length && looksLikeRole(contentLines[i + 1])) {
+          contactRole = contentLines[i + 1];
+          contactRoleSource = `signature line ${i + 1} (after name)`;
+        }
         break;
       }
     }
-    const rolePats = /(?:director|manager|specialist|coordonator|responsabil|sef|șef|achizi[tț]ii|procurement|hr|marketing|admin|departament|birou)/i;
-    for (const line of sigLines.slice(0, 5)) {
-      if (rolePats.test(line) && line.length < 60) {
-        contactRole = line;
-        break;
+
+    // Strategy 2: If no name found above, look for name just before email/phone/website lines
+    if (!contactName) {
+      for (let i = 1; i < Math.min(contentLines.length, 8); i++) {
+        if (isNoiseLine(contentLines[i]) && i > 0) {
+          const candidate = contentLines[i - 1];
+          if (looksLikeName(candidate)) {
+            contactName = candidate;
+            contactNameSource = `line before contact info (line ${i - 1})`;
+            break;
+          }
+        }
+      }
+    }
+
+    // Strategy 3: Role fallback — scan all content lines for role keywords
+    if (!contactRole) {
+      for (let i = 0; i < Math.min(contentLines.length, 6); i++) {
+        const line = contentLines[i];
+        if (line !== contactName && looksLikeRole(line)) {
+          contactRole = line;
+          contactRoleSource = `signature scan (line ${i})`;
+          break;
+        }
       }
     }
   }
+
+  // Fallback: try to find name from greeting in body ("Buna ziua, sunt X", "Ma numesc X")
+  if (!contactName) {
+    const bodyNameMatch = raw.match(/(?:sunt|ma\s+numesc|mă\s+numesc|numele\s+meu\s+este)\s+([A-ZÀ-Ž][a-zà-ž]+\s+[A-ZÀ-Ž][a-zà-ž]+)/i);
+    if (bodyNameMatch) {
+      contactName = bodyNameMatch[1];
+      contactNameSource = 'body greeting';
+    }
+  }
+
+  console.log(`[DEBUG] contact extraction: name="${contactName}" (${contactNameSource}), role="${contactRole}" (${contactRoleSource})`);
 
   // Location hints
   let locationHint: string | null = null;
