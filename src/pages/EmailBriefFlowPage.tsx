@@ -670,13 +670,13 @@ export default function EmailBriefFlowPage() {
 
               {/* ── Draft Generated — optional persistence ── */}
               {generatedPresentationId && (
-                <Card className="border-0 shadow-md border-emerald-200">
+                <Card className="border-0 shadow-md border-accent/30">
                   <CardContent className="p-6 space-y-4">
-                    <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-                      <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                    <div className="flex items-center gap-3 rounded-xl border border-accent/30 bg-accent/5 p-4">
+                      <CheckCircle2 className="h-6 w-6 text-accent" />
                       <div>
-                        <p className="font-medium text-emerald-800">Draft generated successfully!</p>
-                        <p className="text-xs text-emerald-600">Nothing saved to DB yet. Use the actions below to persist.</p>
+                        <p className="font-medium text-foreground">Draft generated successfully!</p>
+                        <p className="text-xs text-muted-foreground">Nothing saved to DB yet. Use the actions below to persist.</p>
                       </div>
                     </div>
 
