@@ -206,16 +206,54 @@ function extractContact(raw: string, signature: string | null) {
   let companyName: string | null = null;
   let companySource: string | null = null;
 
+  // Legal suffixes used throughout extraction
+  const LEGAL_SUFFIXES = ['SRL', 'SA', 'SNC', 'SCS', 'PFA', 'II', 'IF'];
+  const LEGAL_SUFFIX_PATTERN = LEGAL_SUFFIXES.map(s => s.split('').join('\\.?')).join('|');
+  // Matches: SRL, S.R.L., S.R.L, s.r.l., SA, S.A., etc.
+  const legalSuffixRegex = new RegExp(`\\b(?:${LEGAL_SUFFIX_PATTERN})\\b\\.?`, 'i');
+
+  // Strips SC/S.C. prefix and normalizes the company name while preserving legal suffix
+  const cleanCompanyName = (raw: string): string => {
+    let name = raw.trim();
+    // Remove SC / S.C. prefix
+    name = name.replace(/^s\.?\s*c\.?\s+/i, '').trim();
+    // Normalize legal suffix to uppercase canonical form
+    for (const suffix of LEGAL_SUFFIXES) {
+      const pat = new RegExp(`\\b${suffix.split('').join('\\.?')}\\b\\.?\\s*$`, 'i');
+      if (pat.test(name)) {
+        name = name.replace(pat, '').trim() + ' ' + suffix;
+        break;
+      }
+    }
+    // Title-case the base name (before the suffix)
+    const lastSpace = name.lastIndexOf(' ');
+    if (lastSpace > 0) {
+      const base = name.substring(0, lastSpace);
+      const suf = name.substring(lastSpace + 1);
+      if (LEGAL_SUFFIXES.includes(suf)) {
+        const titled = base.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+        name = titled + ' ' + suf;
+      }
+    }
+    return name;
+  };
+
+  // Build regex that captures company name WITH legal suffix
+  // Matches: "SC LIDAS SRL", "LIDAS SRL", "Automatica SA", "S.C. Test S.R.L."
+  const companyWithSuffixRegex = new RegExp(
+    `(?:s\\.?\\s*c\\.?\\s+)?([A-ZÀ-Ž][\\w\\s&.,-]{1,40}?)\\s+(${LEGAL_SUFFIX_PATTERN})\\.?(?=\\s|[.,;!?\\n]|$)`,
+    'im'
+  );
+
   // Priority 1: Signature-based company detection (most reliable)
   if (sigText) {
     const sigLines = sigText.split('\n').map(l => l.trim()).filter(Boolean);
     for (const line of sigLines.slice(0, 6)) {
-      // Look for lines that are just a company name (capitalized, short, no email/phone)
       if (line.length >= 3 && line.length < 50 && !/@/.test(line) && !/\d{4,}/.test(line)) {
-        const srlMatch = line.match(/^([A-ZÀ-Ž][\w\s&.,-]{2,40}?)\s+s\.?r\.?l\.?/i);
-        if (srlMatch) {
-          companyName = srlMatch[1].trim();
-          companySource = 'signature (SRL)';
+        const m = line.match(companyWithSuffixRegex);
+        if (m) {
+          companyName = cleanCompanyName(m[0]);
+          companySource = 'signature (legal entity)';
           break;
         }
       }
@@ -224,19 +262,38 @@ function extractContact(raw: string, signature: string | null) {
 
   // Priority 2: "de la X" phrases in the body (very common in Romanian emails)
   if (!companyName) {
-    const phrasePatterns = [
-      /(?:va\s+scriu|vă\s+scriu|scriu)\s+de\s+la\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s*[.,;!?\n]|\s+(?:si|și|iar|pentru|cu|sa|să|am|as|aș|va|vă|ne|un|o|vom|dorim|avem|suntem)\b)/im,
-      /(?:sunt|lucrez|activez)\s+de\s+la\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s*[.,;!?\n]|\s+(?:si|și|iar|pentru|cu|sa|să|am|as|aș|va|vă|ne|un|o|vom|dorim|avem|suntem)\b)/im,
-      /(?:reprezint|representam|reprezentăm)\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s*[.,;!?\n]|\s+(?:si|și|iar|pentru|cu|sa|să|am|as|aș|va|vă|ne|un|o|vom|dorim|avem|suntem)\b)/im,
-      /(?:compania|firma|societatea|sc|s\.c\.)\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+s\.?r\.?l\.?|\s+s\.?a\.?|\s*[.,;!?\n]|\s*$)/im,
-      /(?:din\s+partea|behalf\s+of)\s+(?:companiei\s+)?([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s+s\.?r\.?l\.?|\s+s\.?a\.?|\s*[.,;!?\n])/im,
-      /(?:de\s+la)\s+([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s*[.,;!?\n]|\s+(?:si|și|iar|pentru|cu|sa|să|am|as|aș|va|vă|ne|un|o|vom|dorim|avem|suntem)\b)/im,
+    // First, try phrase patterns that capture company + legal suffix together
+    const phrasePrefixes = [
+      /(?:va\s+scriu|vă\s+scriu|scriu)\s+de\s+la\s+/im,
+      /(?:sunt|lucrez|activez)\s+de\s+la\s+/im,
+      /(?:reprezint|representam|reprezentăm)\s+/im,
+      /(?:compania|firma|societatea|sc|s\.c\.)\s+/im,
+      /(?:din\s+partea|behalf\s+of)\s+(?:companiei\s+)?/im,
+      /(?:de\s+la)\s+/im,
     ];
-    for (const pat of phrasePatterns) {
-      const m = combined.match(pat);
-      if (m) {
-        const candidate = m[1].trim();
-        // Validate: must start with uppercase, not be generic text
+
+    for (const prefix of phrasePrefixes) {
+      const prefixMatch = combined.match(prefix);
+      if (!prefixMatch) continue;
+      const afterPrefix = combined.substring(prefixMatch.index! + prefixMatch[0].length);
+
+      // Try to match company + legal suffix first
+      const withSuffix = afterPrefix.match(new RegExp(
+        `^(?:s\\.?\\s*c\\.?\\s+)?([A-ZÀ-Ž][\\w\\s&.,-]{1,40}?)\\s+(${LEGAL_SUFFIX_PATTERN})\\.?`,
+        'im'
+      ));
+      if (withSuffix) {
+        companyName = cleanCompanyName(withSuffix[0]);
+        companySource = 'phrase (with suffix)';
+        break;
+      }
+
+      // Fallback: original capture without suffix
+      const withoutSuffix = afterPrefix.match(
+        /^([A-ZÀ-Ž][\w\s&.,-]{2,40}?)(?:\s*[.,;!?\n]|\s+(?:si|și|iar|pentru|cu|sa|să|am|as|aș|va|vă|ne|un|o|vom|dorim|avem|suntem)\b)/im
+      );
+      if (withoutSuffix) {
+        const candidate = withoutSuffix[1].trim();
         const genericWords = ['pe email', 'telefon', 'mail', 'mesaj', 'whatsapp', 'site', 'pagina', 'informatii', 'informații', 'email', 'aceast'];
         const isGeneric = genericWords.some(g => candidate.toLowerCase().startsWith(g));
         if (!isGeneric && candidate.length >= 3) {
@@ -248,12 +305,12 @@ function extractContact(raw: string, signature: string | null) {
     }
   }
 
-  // Priority 3: SRL/SA pattern anywhere in text
+  // Priority 3: Legal entity pattern anywhere in text (SC LIDAS SRL, AUTOMATICA SA, etc.)
   if (!companyName) {
-    const srlMatch = combined.match(/([A-ZÀ-Ž][\w\s&]{2,30}?)\s+s\.?r\.?l\.?/im);
-    if (srlMatch) {
-      companyName = srlMatch[1].trim();
-      companySource = 'SRL pattern';
+    const m = combined.match(companyWithSuffixRegex);
+    if (m) {
+      companyName = cleanCompanyName(m[0]);
+      companySource = 'legal entity pattern';
     }
   }
 
