@@ -23,6 +23,8 @@ import { getRecommendedProducts, getRecommendedKits } from '@/services/recommend
 import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
 import BriefRulesPanel from '@/components/BriefRulesPanel';
 import EligibilityBadge from '@/components/EligibilityBadge';
+import CompanyResearchPanel from '@/components/CompanyResearchPanel';
+import type { CompanyResearchResult } from '@/services/companyResearchService';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
 import { generatePresentation } from '@/lib/presentation-generator';
 import { presentationTemplates } from '@/lib/presentation-templates';
