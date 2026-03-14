@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { FileText } from 'lucide-react';
-import type { InboundBrief } from '@/pages/InboundBriefWorkspace';
+import type { InboundBrief } from '@/pages/EmailBriefFlowPage';
 
 interface Props {
   form: InboundBrief;
