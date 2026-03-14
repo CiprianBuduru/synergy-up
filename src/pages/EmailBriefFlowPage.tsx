@@ -538,26 +538,8 @@ export default function EmailBriefFlowPage() {
             </motion.div>
           )}
 
-          {/* ═══════════ STEP 4: ANALYSIS ═══════════ */}
-          {(flowState === 'analyzed' || flowState === 'generated') && confirmedBrief && !briefAnalysis && (
-            <motion.div key="pre-analyze" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-4">
-              <Card className="border-0 shadow-md">
-                <CardHeader>
-                  <CardTitle className="font-display text-xl flex items-center gap-2">
-                    <Brain className="h-5 w-5 text-primary" /> Analyze Brief
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Analysis uses: company_name="{confirmedBrief.company_name}", industry="{confirmedBrief.industry_hint}", {confirmedBrief.requested_items.length} items. No DB dependency.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <Button onClick={handleAnalyze} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                    <Brain className="mr-2 h-4 w-4" /> Run Analysis
-                  </Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
+
+
 
           {/* ═══════════ STEP 4 RESULTS + STEP 5 ═══════════ */}
           {briefAnalysis && confirmedBrief && (
