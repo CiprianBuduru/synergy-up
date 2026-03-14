@@ -80,6 +80,7 @@ export default function EmailBriefFlowPage() {
   const [selectedTemplate, setSelectedTemplate] = useState('corporate-clean');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPresentationId, setGeneratedPresentationId] = useState<string | null>(null);
+  const [companyResearch, setCompanyResearch] = useState<CompanyResearchResult | null>(null);
 
   // Editable form state (for Step 3)
   const [editForm, setEditForm] = useState<ConfirmedBrief>({
