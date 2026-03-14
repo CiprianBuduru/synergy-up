@@ -413,7 +413,7 @@ export default function EmailBriefFlowPage() {
           )}
 
           {/* ═══════════ STEP 3: CONFIRM BRIEF (editable) ═══════════ */}
-          {(flowState === 'confirmed' || flowState === 'analyzed' || flowState === 'generated') && !briefAnalysis && (
+          {(flowState === 'confirmed' || flowState === 'analyzed' || flowState === 'generated') && !confirmedBrief && (
             <motion.div key="confirm" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-4">
               <Card className="border-0 shadow-md">
                 <CardHeader>
@@ -497,6 +497,44 @@ export default function EmailBriefFlowPage() {
               <Button variant="outline" onClick={() => setFlowState('parsed')}>
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back to parsed view
               </Button>
+            </motion.div>
+          )}
+
+          {/* ═══════════ STEP 3.5: COMPANY RESEARCH + CONTINUE TO ANALYSIS ═══════════ */}
+          {confirmedBrief && !briefAnalysis && (
+            <motion.div key="research" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-4">
+              {/* Brief confirmed summary */}
+              <Card className="border-0 shadow-md">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/30">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Brief confirmed</p>
+                      <p className="text-xs text-muted-foreground">
+                        Company: {confirmedBrief.company_name || 'Unknown'} · {confirmedBrief.requested_items.length} items · {confirmedBrief.request_type}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Company Research Panel — optional, non-blocking */}
+              {confirmedBrief.company_name && (
+                <CompanyResearchPanel
+                  companyName={confirmedBrief.company_name}
+                  onResearchComplete={handleResearchComplete}
+                />
+              )}
+
+              {/* Continue to analysis — always available */}
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => { setConfirmedBrief(null); setFlowState('confirmed'); }}>
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Edit Brief
+                </Button>
+                <Button onClick={() => { handleAnalyze(); setFlowState('analyzed'); }} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Brain className="mr-2 h-4 w-4" /> Continue to Analysis <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
             </motion.div>
           )}
 
