@@ -124,10 +124,25 @@ export default function EmailBriefFlowPage() {
   const handleConfirmBrief = useCallback(() => {
     setConfirmedBrief({ ...editForm });
     setFlowState('confirmed');
-    toast.success('Brief confirmed — ready for analysis');
-    // Immediately move to analysis step
-    setTimeout(() => setFlowState('analyzed'), 0);
+    toast.success('Brief confirmed — run company research or proceed to analysis');
   }, [editForm]);
+
+  // Handler for research completion — enrich editForm with findings
+  const handleResearchComplete = useCallback((res: CompanyResearchResult) => {
+    setCompanyResearch(res);
+    // Auto-fill empty fields from research
+    setEditForm(prev => ({
+      ...prev,
+      industry_hint: prev.industry_hint || res.detected_industry,
+      location_hint: prev.location_hint || res.detected_location,
+    }));
+    // Also update confirmedBrief if already confirmed
+    setConfirmedBrief(prev => prev ? {
+      ...prev,
+      industry_hint: prev.industry_hint || res.detected_industry,
+      location_hint: prev.location_hint || res.detected_location,
+    } : prev);
+  }, []);
 
   // ── Step 4: Analyze (no DB, no company_id) ──
   const handleAnalyze = useCallback(() => {
