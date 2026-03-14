@@ -23,6 +23,8 @@ import { getRecommendedProducts, getRecommendedKits } from '@/services/recommend
 import EligibilityReasoningPanel from '@/components/EligibilityReasoningPanel';
 import BriefRulesPanel from '@/components/BriefRulesPanel';
 import EligibilityBadge from '@/components/EligibilityBadge';
+import CompanyResearchPanel from '@/components/CompanyResearchPanel';
+import type { CompanyResearchResult } from '@/services/companyResearchService';
 import { ProductCard, KitCard } from '@/components/ProductKitCards';
 import { generatePresentation } from '@/lib/presentation-generator';
 import { presentationTemplates } from '@/lib/presentation-templates';
@@ -78,6 +80,7 @@ export default function EmailBriefFlowPage() {
   const [selectedTemplate, setSelectedTemplate] = useState('corporate-clean');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPresentationId, setGeneratedPresentationId] = useState<string | null>(null);
+  const [companyResearch, setCompanyResearch] = useState<CompanyResearchResult | null>(null);
 
   // Editable form state (for Step 3)
   const [editForm, setEditForm] = useState<ConfirmedBrief>({
@@ -122,10 +125,25 @@ export default function EmailBriefFlowPage() {
   const handleConfirmBrief = useCallback(() => {
     setConfirmedBrief({ ...editForm });
     setFlowState('confirmed');
-    toast.success('Brief confirmed — ready for analysis');
-    // Immediately move to analysis step
-    setTimeout(() => setFlowState('analyzed'), 0);
+    toast.success('Brief confirmed — run company research or proceed to analysis');
   }, [editForm]);
+
+  // Handler for research completion — enrich editForm with findings
+  const handleResearchComplete = useCallback((res: CompanyResearchResult) => {
+    setCompanyResearch(res);
+    // Auto-fill empty fields from research
+    setEditForm(prev => ({
+      ...prev,
+      industry_hint: prev.industry_hint || res.detected_industry,
+      location_hint: prev.location_hint || res.detected_location,
+    }));
+    // Also update confirmedBrief if already confirmed
+    setConfirmedBrief(prev => prev ? {
+      ...prev,
+      industry_hint: prev.industry_hint || res.detected_industry,
+      location_hint: prev.location_hint || res.detected_location,
+    } : prev);
+  }, []);
 
   // ── Step 4: Analyze (no DB, no company_id) ──
   const handleAnalyze = useCallback(() => {
@@ -395,7 +413,7 @@ export default function EmailBriefFlowPage() {
           )}
 
           {/* ═══════════ STEP 3: CONFIRM BRIEF (editable) ═══════════ */}
-          {(flowState === 'confirmed' || flowState === 'analyzed' || flowState === 'generated') && !briefAnalysis && (
+          {(flowState === 'confirmed' || flowState === 'analyzed' || flowState === 'generated') && !confirmedBrief && (
             <motion.div key="confirm" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-4">
               <Card className="border-0 shadow-md">
                 <CardHeader>
@@ -482,26 +500,46 @@ export default function EmailBriefFlowPage() {
             </motion.div>
           )}
 
-          {/* ═══════════ STEP 4: ANALYSIS ═══════════ */}
-          {(flowState === 'analyzed' || flowState === 'generated') && confirmedBrief && !briefAnalysis && (
-            <motion.div key="pre-analyze" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-4">
+          {/* ═══════════ STEP 3.5: COMPANY RESEARCH + CONTINUE TO ANALYSIS ═══════════ */}
+          {confirmedBrief && !briefAnalysis && (
+            <motion.div key="research" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-4">
+              {/* Brief confirmed summary */}
               <Card className="border-0 shadow-md">
-                <CardHeader>
-                  <CardTitle className="font-display text-xl flex items-center gap-2">
-                    <Brain className="h-5 w-5 text-primary" /> Analyze Brief
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Analysis uses: company_name="{confirmedBrief.company_name}", industry="{confirmedBrief.industry_hint}", {confirmedBrief.requested_items.length} items. No DB dependency.
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <Button onClick={handleAnalyze} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                    <Brain className="mr-2 h-4 w-4" /> Run Analysis
-                  </Button>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950/30">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Brief confirmed</p>
+                      <p className="text-xs text-muted-foreground">
+                        Company: {confirmedBrief.company_name || 'Unknown'} · {confirmedBrief.requested_items.length} items · {confirmedBrief.request_type}
+                      </p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
+
+              {/* Company Research Panel — optional, non-blocking */}
+              {confirmedBrief.company_name && (
+                <CompanyResearchPanel
+                  companyName={confirmedBrief.company_name}
+                  onResearchComplete={handleResearchComplete}
+                />
+              )}
+
+              {/* Continue to analysis — always available */}
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => { setConfirmedBrief(null); setFlowState('confirmed'); }}>
+                  <ArrowLeft className="mr-2 h-4 w-4" /> Edit Brief
+                </Button>
+                <Button onClick={() => { handleAnalyze(); setFlowState('analyzed'); }} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Brain className="mr-2 h-4 w-4" /> Continue to Analysis <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </div>
             </motion.div>
           )}
+
+
+
 
           {/* ═══════════ STEP 4 RESULTS + STEP 5 ═══════════ */}
           {briefAnalysis && confirmedBrief && (
