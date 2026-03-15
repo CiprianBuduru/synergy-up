@@ -59,12 +59,14 @@ export async function runCompanyResearch(
     let summary = '';
     let linkedin = '';
 
+    // Collect all candidate URLs first, then pick the best website
+    const candidateUrls: string[] = [];
+
     for (const item of results) {
       const url = item.url || item.link || '';
       const title = item.title || '';
       const description = item.description || '';
       const markdown = item.markdown || '';
-      const fullText = `${title} ${description} ${markdown}`.toLowerCase();
 
       if (url) sources.push(url);
 
@@ -74,27 +76,36 @@ export async function runCompanyResearch(
         continue;
       }
 
-      // Detect official website (skip social media and directories)
-      if (!detectedWebsite && url && !isSocialOrDirectory(url)) {
-        detectedWebsite = url;
+      // Collect non-social URLs as website candidates
+      if (url && !isSocialOrDirectory(url)) {
+        candidateUrls.push(url);
       }
 
-      // Try to extract industry from content
-      if (!detectedIndustry) {
+      // Only use root-level pages for industry detection (avoid subpage noise)
+      const isRootLevel = isRootOrNearRoot(url);
+
+      if (!detectedIndustry && isRootLevel) {
+        const fullText = `${title} ${description} ${markdown}`.toLowerCase();
         detectedIndustry = extractIndustry(fullText);
       }
 
-      // Try to extract location
+      // Try to extract location from any result
       if (!detectedLocation) {
+        const fullText = `${title} ${description} ${markdown}`.toLowerCase();
         detectedLocation = extractLocation(fullText);
       }
 
-      // Build summary from first meaningful result
+      // Build summary from first meaningful root-level result, fallback to any
       if (!summary && (description || markdown)) {
-        summary = (description || markdown.slice(0, 300)).trim();
-        if (summary.length > 300) summary = summary.slice(0, 297) + '...';
+        const text = (description || markdown.slice(0, 300)).trim();
+        if (isRootLevel || !summary) {
+          summary = text.length > 300 ? text.slice(0, 297) + '...' : text;
+        }
       }
     }
+
+    // Pick best website: prefer root domain over deep subpages
+    detectedWebsite = pickBestWebsite(candidateUrls);
 
     const result: CompanyResearchResult = {
       company_name: name,
