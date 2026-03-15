@@ -148,6 +148,44 @@ function isSocialOrDirectory(url: string): boolean {
   return skip.some(d => url.includes(d));
 }
 
+/** Extract root domain URL from any URL (e.g. https://lidas.ro/en/page → https://lidas.ro) */
+function toRootDomain(url: string): string {
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return `${parsed.protocol}//${parsed.hostname}`;
+  } catch {
+    return url;
+  }
+}
+
+/** Check if a URL is the root page or near-root (max 1 path segment) */
+function isRootOrNearRoot(url: string): boolean {
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    return segments.length <= 1;
+  } catch {
+    return false;
+  }
+}
+
+/** Pick the best website from candidates: prefer root domains over deep subpages */
+function pickBestWebsite(urls: string[]): string {
+  if (urls.length === 0) return '';
+
+  // Group by root domain and prefer root/near-root URLs
+  const domainMap = new Map<string, string[]>();
+  for (const url of urls) {
+    const root = toRootDomain(url);
+    if (!domainMap.has(root)) domainMap.set(root, []);
+    domainMap.get(root)!.push(url);
+  }
+
+  // Pick the first domain encountered (highest search relevance), return its root
+  const firstRoot = toRootDomain(urls[0]);
+  return firstRoot;
+}
+
 function extractIndustry(text: string): string {
   const patterns: [RegExp, string][] = [
     [/\b(it|software|tech|technology|digital)\b/i, 'IT & Software'],
