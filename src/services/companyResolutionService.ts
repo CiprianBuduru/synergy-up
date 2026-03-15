@@ -126,7 +126,7 @@ export function resolveCompany(
         company,
         matchType: 'exact',
         confidence: 0.95,
-        matchDetail: `Potrivire exactă (fără sufix legal): "${company.company_name}"`,
+        matchDetail: `Verified (normalized match): "${company.company_name}"`,
       });
       continue;
     }
