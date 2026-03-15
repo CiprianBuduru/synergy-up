@@ -656,6 +656,7 @@ export default function NewPresentationPage() {
                   parsedCompanyName={parsedEmail?.company_name || ''}
                   companies={data.companies}
                   selectedCompanyId={selectedCompanyId}
+                  contactEmail={parsedEmail?.contact_email || ''}
                   onConfirm={(id) => {
                     if (id) {
                       setSelectedCompanyId(id);

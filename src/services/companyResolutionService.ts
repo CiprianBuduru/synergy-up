@@ -10,7 +10,8 @@ export type ResolutionStatus =
   | 'confirmed'           // Exact match found in DB
   | 'likely_match'        // Fuzzy match — high confidence but not exact
   | 'unverified'          // No match found — company name from parser only
-  | 'manual_review';      // Ambiguous — multiple candidates or low confidence
+  | 'manual_review'       // Ambiguous — multiple candidates or low confidence
+  | 'verified_web';       // Verified via AI web research (domain match)
 
 export interface ResolutionCandidate {
   company: Company;
@@ -252,5 +253,11 @@ export const RESOLUTION_STATUS_CONFIG: Record<ResolutionStatus, {
     description: 'Mai multe potriviri posibile. Selectează compania corectă din lista de candidați.',
     color: 'text-orange-700 bg-orange-50 border-orange-200',
     icon: 'help-circle',
+  },
+  verified_web: {
+    label: 'Verified via web research',
+    description: 'Compania a fost verificată prin cercetare web — domeniu similar cu emailul detectat.',
+    color: 'text-teal-700 bg-teal-50 border-teal-200',
+    icon: 'globe',
   },
 };

@@ -1,29 +1,29 @@
 // ─── Company Resolution Panel ──────────────────────────────
 // UI for verifying / confirming a company from parsed email data.
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
   ShieldCheck, Search, AlertTriangle, HelpCircle, CheckCircle2,
-  Building2, ChevronRight, RefreshCw, Users, MapPin,
+  Building2, ChevronRight, RefreshCw, MapPin, Globe, Loader2,
 } from 'lucide-react';
 import { resolveCompany, RESOLUTION_STATUS_CONFIG, type ResolutionResult, type ResolutionStatus } from '@/services/companyResolutionService';
+import { runCompanyResearch, type CompanyResearchResult } from '@/services/companyResearchService';
 import type { Company } from '@/types';
 
 interface Props {
-  /** Company name extracted from email or entered manually */
   parsedCompanyName: string;
-  /** All companies from data context */
   companies: Company[];
-  /** Currently selected company ID (if any) */
   selectedCompanyId: string;
-  /** Callback when user confirms a company */
   onConfirm: (companyId: string) => void;
-  /** Callback to skip verification and continue with unverified */
   onSkip: () => void;
+  /** Optional: email address to extract domain for verification */
+  contactEmail?: string;
+  /** Callback when web research enriches data */
+  onWebResearchComplete?: (result: CompanyResearchResult) => void;
 }
 
 const STATUS_ICONS: Record<ResolutionStatus, React.ReactNode> = {
@@ -31,7 +31,27 @@ const STATUS_ICONS: Record<ResolutionStatus, React.ReactNode> = {
   likely_match: <Search className="h-5 w-5" />,
   unverified: <AlertTriangle className="h-5 w-5" />,
   manual_review: <HelpCircle className="h-5 w-5" />,
+  verified_web: <Globe className="h-5 w-5" />,
 };
+
+// ─── Domain matching helper ─────────────────────────────────
+
+function extractDomain(email: string): string {
+  const match = email.match(/@([a-zA-Z0-9.-]+)/);
+  return match ? match[1].toLowerCase() : '';
+}
+
+function domainsMatch(websiteUrl: string, emailDomain: string): boolean {
+  if (!websiteUrl || !emailDomain) return false;
+  try {
+    const url = websiteUrl.startsWith('http') ? websiteUrl : `https://${websiteUrl}`;
+    const hostname = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    const cleanEmail = emailDomain.replace(/^www\./, '');
+    return hostname === cleanEmail || hostname.endsWith(`.${cleanEmail}`) || cleanEmail.endsWith(`.${hostname}`);
+  } catch {
+    return websiteUrl.toLowerCase().includes(emailDomain);
+  }
+}
 
 export default function CompanyResolutionPanel({
   parsedCompanyName,
@@ -39,15 +59,24 @@ export default function CompanyResolutionPanel({
   selectedCompanyId,
   onConfirm,
   onSkip,
+  contactEmail,
+  onWebResearchComplete,
 }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [manualSearch, setManualSearch] = useState(false);
+  const [researchStatus, setResearchStatus] = useState<'idle' | 'researching' | 'completed' | 'error'>('idle');
+  const [researchResult, setResearchResult] = useState<CompanyResearchResult | null>(null);
+  const [webVerified, setWebVerified] = useState(false);
 
   // Run resolution engine
   const resolution: ResolutionResult = useMemo(
     () => resolveCompany(parsedCompanyName, companies),
     [parsedCompanyName, companies],
   );
+
+  // Override status if web-verified
+  const effectiveStatus: ResolutionStatus = webVerified ? 'verified_web' : resolution.status;
+  const config = RESOLUTION_STATUS_CONFIG[effectiveStatus];
 
   // Auto-confirm if exact match & nothing selected yet
   useEffect(() => {
@@ -56,7 +85,31 @@ export default function CompanyResolutionPanel({
     }
   }, [resolution, selectedCompanyId, onConfirm]);
 
-  const config = RESOLUTION_STATUS_CONFIG[resolution.status];
+  // ─── AI Research handler ──────────────────────────────────
+  const handleRunResearch = useCallback(async () => {
+    if (!parsedCompanyName.trim()) return;
+    setResearchStatus('researching');
+    try {
+      const { result, error } = await runCompanyResearch(parsedCompanyName);
+      if (error && !result) {
+        setResearchStatus('error');
+        return;
+      }
+      if (result) {
+        setResearchResult(result);
+        setResearchStatus('completed');
+        onWebResearchComplete?.(result);
+
+        // Check domain match
+        const emailDomain = contactEmail ? extractDomain(contactEmail) : '';
+        if (emailDomain && result.detected_website && domainsMatch(result.detected_website, emailDomain)) {
+          setWebVerified(true);
+        }
+      }
+    } catch {
+      setResearchStatus('error');
+    }
+  }, [parsedCompanyName, contactEmail, onWebResearchComplete]);
 
   // Manual search results
   const searchResults = useMemo(() => {
@@ -75,6 +128,8 @@ export default function CompanyResolutionPanel({
     ? companies.find(c => c.id === selectedCompanyId)
     : null;
 
+  const showResearchButton = !confirmedCompany && (effectiveStatus === 'unverified' || effectiveStatus === 'manual_review') && researchStatus === 'idle';
+
   return (
     <Card className="border-0 shadow-md">
       <CardHeader className="pb-3">
@@ -90,14 +145,21 @@ export default function CompanyResolutionPanel({
       <CardContent className="space-y-4">
         {/* Status banner */}
         <div className={`flex items-start gap-3 rounded-xl border p-4 ${config.color}`}>
-          <div className="mt-0.5">{STATUS_ICONS[resolution.status]}</div>
+          <div className="mt-0.5">{STATUS_ICONS[effectiveStatus]}</div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold">{config.label}</p>
-            <p className="text-xs mt-0.5 opacity-80">{resolution.message}</p>
+            <p className="text-xs mt-0.5 opacity-80">
+              {webVerified ? 'Compania a fost verificată prin cercetare web — domeniu similar cu emailul detectat.' : resolution.message}
+            </p>
           </div>
-          {resolution.status === 'confirmed' && confirmedCompany && (
+          {effectiveStatus === 'confirmed' && confirmedCompany && (
             <Badge variant="outline" className="shrink-0 text-emerald-700 border-emerald-300 bg-emerald-100 text-[10px]">
               <CheckCircle2 className="h-3 w-3 mr-0.5" /> Confirmed
+            </Badge>
+          )}
+          {effectiveStatus === 'verified_web' && (
+            <Badge variant="outline" className="shrink-0 text-teal-700 border-teal-300 bg-teal-100 text-[10px]">
+              <Globe className="h-3 w-3 mr-0.5" /> Web Verified
             </Badge>
           )}
         </div>
@@ -109,6 +171,62 @@ export default function CompanyResolutionPanel({
             {parsedCompanyName || <span className="italic text-muted-foreground">—</span>}
           </p>
         </div>
+
+        {/* AI Research Button */}
+        {showResearchButton && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRunResearch}
+            className="w-full text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/5"
+          >
+            <Globe className="h-3.5 w-3.5" /> Run AI Company Research
+          </Button>
+        )}
+
+        {/* Research loading */}
+        {researchStatus === 'researching' && (
+          <div className="flex items-center gap-2 rounded-lg border bg-muted/20 p-3">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            <span className="text-xs text-muted-foreground">Cercetare web în curs pentru "{parsedCompanyName}"...</span>
+          </div>
+        )}
+
+        {/* Research error */}
+        {researchStatus === 'error' && (
+          <div className="flex items-center justify-between rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+            <span className="text-xs text-destructive">Cercetarea web a eșuat.</span>
+            <Button variant="ghost" size="sm" onClick={handleRunResearch} className="text-xs h-7">
+              <RefreshCw className="h-3 w-3 mr-1" /> Reîncearcă
+            </Button>
+          </div>
+        )}
+
+        {/* Research results */}
+        {researchStatus === 'completed' && researchResult && (
+          <div className="rounded-xl border bg-muted/20 p-4 space-y-2">
+            <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <Search className="h-3.5 w-3.5 text-primary" /> Rezultate cercetare web
+            </p>
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              {researchResult.detected_website && (
+                <ResearchField label="Website" value={researchResult.detected_website} isLink />
+              )}
+              {researchResult.detected_industry && (
+                <ResearchField label="Industrie" value={researchResult.detected_industry} />
+              )}
+              {researchResult.detected_location && (
+                <ResearchField label="Locație" value={researchResult.detected_location} />
+              )}
+              {researchResult.possible_linkedin && (
+                <ResearchField label="LinkedIn" value={researchResult.possible_linkedin} isLink />
+              )}
+            </div>
+            {researchResult.short_company_summary && (
+              <p className="text-[11px] text-muted-foreground mt-1 line-clamp-3">{researchResult.short_company_summary}</p>
+            )}
+          </div>
+        )}
 
         {/* Confirmed company display */}
         {confirmedCompany && (
@@ -250,5 +368,22 @@ export default function CompanyResolutionPanel({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+// ─── Helper component ───────────────────────────────────────
+
+function ResearchField({ label, value, isLink }: { label: string; value: string; isLink?: boolean }) {
+  return (
+    <div>
+      <p className="text-muted-foreground">{label}</p>
+      {isLink ? (
+        <a href={value.startsWith('http') ? value : `https://${value}`} target="_blank" rel="noopener noreferrer" className="text-primary underline truncate block">
+          {value.replace(/^https?:\/\//, '').slice(0, 40)}
+        </a>
+      ) : (
+        <p className="font-medium text-foreground">{value}</p>
+      )}
+    </div>
   );
 }
