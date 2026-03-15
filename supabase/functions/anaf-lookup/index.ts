@@ -47,8 +47,8 @@ Deno.serve(async (req) => {
     const items = found || [];
     if (!items || items.length === 0) {
       return new Response(
-        JSON.stringify({ success: false, error: 'CUI not found in ANAF database' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        JSON.stringify({ success: false, error: 'CUI negăsit în baza de date ANAF.' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
