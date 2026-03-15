@@ -33,8 +33,10 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       console.error('ANAF API HTTP error:', response.status);
       return new Response(
-        JSON.stringify({ success: false, error: `ANAF API returned status ${response.status}` }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        JSON.stringify({ success: false, error: `ANAF API a returnat eroarea ${response.status}` }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
       );
     }
 
