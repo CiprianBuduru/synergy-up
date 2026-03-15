@@ -37,8 +37,6 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
-      );
-    }
 
     const data = await response.json();
     const found = data?.found || data?.cod === 200 ? data?.found : null;
