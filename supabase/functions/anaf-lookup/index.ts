@@ -27,20 +27,35 @@ Deno.serve(async (req) => {
     const anafBody = JSON.stringify([{ cui: parseInt(cuiClean, 10), data: today }]);
     console.log('ANAF request body:', anafBody);
 
-    const response = await fetch('https://webservicesp.anaf.ro/PlatitorTvaRest/api/v8/ws/tva', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'User-Agent': 'Mozilla/5.0',
-      },
-      body: anafBody,
-    });
+    // Try multiple ANAF endpoints (they occasionally change or block certain IPs)
+    const endpoints = [
+      'https://webservicesp.anaf.ro/PlatitorTvaRest/api/v8/ws/tva',
+      'https://webservicesp.anaf.ro/AsynchWebService/api/v8/ws/tva',
+    ];
 
-    const responseText = await response.text();
-    console.log('ANAF response status:', response.status, 'body:', responseText.slice(0, 500));
+    let response: Response | null = null;
+    let responseText = '';
 
-    if (!response.ok) {
+    for (const endpoint of endpoints) {
+      console.log('Trying ANAF endpoint:', endpoint);
+      try {
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: anafBody,
+        });
+        responseText = await response.text();
+        console.log('ANAF response from', endpoint, '- status:', response.status, 'body:', responseText.slice(0, 300));
+        if (response.ok) break;
+      } catch (e) {
+        console.error('Failed endpoint', endpoint, e);
+      }
+    }
+
+    if (!response || !response.ok) {
       return new Response(
         JSON.stringify({ success: false, error: `ANAF API a returnat eroarea ${response.status}`, debug: responseText.slice(0, 200) }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
