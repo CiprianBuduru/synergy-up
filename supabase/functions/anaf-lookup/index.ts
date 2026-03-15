@@ -33,8 +33,10 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       console.error('ANAF API HTTP error:', response.status);
       return new Response(
-        JSON.stringify({ success: false, error: `ANAF API returned status ${response.status}` }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        JSON.stringify({ success: false, error: `ANAF API a returnat eroarea ${response.status}` }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
       );
     }
 
@@ -45,8 +47,8 @@ Deno.serve(async (req) => {
     const items = found || [];
     if (!items || items.length === 0) {
       return new Response(
-        JSON.stringify({ success: false, error: 'CUI not found in ANAF database' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        JSON.stringify({ success: false, error: 'CUI negăsit în baza de date ANAF.' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 

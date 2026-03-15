@@ -73,7 +73,7 @@ export default function CompanyProspectPage() {
     setStatus('researching');
     const searchName = resolvedName || `CUI ${cuiVal}`;
     const { result, error: researchError } = await runCompanyResearch(
-      cuiVal ? `${searchName} CUI ${cuiVal}` : searchName,
+      cuiVal && resolvedName ? `${searchName} CUI ${cuiVal}` : searchName,
     );
 
     if (researchError && !result) {
