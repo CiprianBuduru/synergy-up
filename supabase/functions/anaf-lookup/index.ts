@@ -21,7 +21,6 @@ Deno.serve(async (req) => {
     const cuiClean = cui.trim().replace(/^RO/i, '');
     console.log('Looking up CUI:', cuiClean);
 
-    // Use Firecrawl to scrape company data from listafirme.ro
     const apiKey = Deno.env.get('FIRECRAWL_API_KEY');
     if (!apiKey) {
       return new Response(
@@ -30,53 +29,57 @@ Deno.serve(async (req) => {
       );
     }
 
-    const scrapeUrl = `https://www.listafirme.ro/search.aspx?q=${cuiClean}`;
-    console.log('Scraping:', scrapeUrl);
-
-    const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+    // Use Firecrawl search to find company info by CUI
+    console.log('Searching for CUI:', cuiClean);
+    const searchResp = await fetch('https://api.firecrawl.dev/v1/search', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        url: scrapeUrl,
-        formats: ['markdown'],
-        onlyMainContent: true,
+        query: `"${cuiClean}" CUI firma Romania CAEN`,
+        limit: 5,
+        scrapeOptions: { formats: ['markdown'] },
       }),
     });
 
-    const scrapeData = await response.json();
-
-    if (!response.ok || !scrapeData?.success) {
-      console.error('Firecrawl scrape failed:', scrapeData?.error || response.status);
+    const searchData = await searchResp.json();
+    if (!searchResp.ok) {
+      console.error('Search failed:', searchData?.error || searchResp.status);
       return new Response(
-        JSON.stringify({ success: false, error: 'Nu s-au putut obține date pentru acest CUI.' }),
+        JSON.stringify({ success: false, error: 'Căutarea CUI a eșuat.' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    const markdown = scrapeData?.data?.markdown || '';
-    const metadata = scrapeData?.data?.metadata || {};
-    console.log('Scraped content length:', markdown.length);
+    const results = searchData?.data || [];
+    console.log('Search returned', results.length, 'results');
 
-    // Parse company data from listafirme.ro markdown
-    const result = parseListafirmeData(cuiClean, markdown, metadata);
+    if (results.length === 0) {
+      return new Response(
+        JSON.stringify({ success: false, error: `CUI ${cuiClean} negăsit în surse publice.` }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
+    // Aggregate data from all results
+    const result = extractCompanyFromResults(cuiClean, results);
 
     if (!result.legal_name) {
       return new Response(
-        JSON.stringify({ success: false, error: 'CUI negăsit sau date insuficiente.' }),
+        JSON.stringify({ success: false, error: 'Date insuficiente pentru acest CUI.' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    console.log('Lookup successful:', result.legal_name);
+    console.log('Lookup successful:', result.legal_name, 'CAEN:', result.caen_code);
     return new Response(
-      JSON.stringify({ success: true, data: result, source: 'listafirme.ro' }),
+      JSON.stringify({ success: true, data: result, source: 'web_search' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
-    console.error('ANAF lookup error:', error);
+    console.error('CUI lookup error:', error);
     const msg = error instanceof Error ? error.message : 'Lookup failed';
     return new Response(
       JSON.stringify({ success: false, error: msg }),
@@ -85,7 +88,7 @@ Deno.serve(async (req) => {
   }
 });
 
-// ─── Parser for listafirme.ro content ──────────────────────
+// ─── Extract company data from search results ─────────────
 
 interface CompanyResult {
   cui: string;
@@ -107,8 +110,15 @@ interface CompanyResult {
   status_split_tva: string;
 }
 
-function parseListafirmeData(cui: string, markdown: string, metadata: Record<string, string>): CompanyResult {
-  const result: CompanyResult = {
+interface SearchResult {
+  url?: string;
+  title?: string;
+  description?: string;
+  markdown?: string;
+}
+
+function extractCompanyFromResults(cui: string, results: SearchResult[]): CompanyResult {
+  const r: CompanyResult = {
     cui,
     legal_name: '',
     address: '',
@@ -128,57 +138,88 @@ function parseListafirmeData(cui: string, markdown: string, metadata: Record<str
     status_split_tva: '',
   };
 
-  // Try to extract from title first
-  const title = metadata?.title || '';
-  if (title) {
-    // listafirme.ro titles are like "FIRMA SRL - CUI 12345 - info"
-    const titleMatch = title.match(/^([^-–]+)/);
-    if (titleMatch) {
-      result.legal_name = titleMatch[1].trim();
+  for (const item of results) {
+    const text = `${item.title || ''} ${item.description || ''} ${item.markdown || ''}`;
+
+    // Skip if this result doesn't seem to be about our CUI
+    if (!text.includes(cui)) continue;
+
+    // Legal name: look for company names near the CUI
+    if (!r.legal_name) {
+      // From title: "COMPANY NAME SRL - CUI xxx" or "COMPANY NAME S.R.L. (CUI xxx)"
+      const titleNameMatch = (item.title || '').match(/^([A-ZĂÎȘȚÂ][A-ZĂÎȘȚÂ\s.&-]{2,}(?:S\.?R\.?L\.?|S\.?A\.?|S\.?N\.?C\.?|S\.?C\.?S\.?|P\.?F\.?A\.?|I\.?I\.?|I\.?F\.?))/i);
+      if (titleNameMatch) {
+        r.legal_name = titleNameMatch[1].trim().replace(/\s+/g, ' ');
+      }
+    }
+    if (!r.legal_name) {
+      // From markdown: "Denumire: COMPANY NAME" or "## COMPANY NAME"
+      const denumireMatch = text.match(/(?:denumire|firma|company)[:\s]*([A-ZĂÎȘȚÂ][^\n]{3,60}(?:S\.?R\.?L\.?|S\.?A\.?|S\.?N\.?C\.?|P\.?F\.?A\.?))/i);
+      if (denumireMatch) r.legal_name = denumireMatch[1].trim();
+    }
+    if (!r.legal_name) {
+      // Try heading pattern
+      const headingMatch = text.match(/#{1,3}\s*([A-ZĂÎȘȚÂ][A-ZĂÎȘȚÂ\s.&-]{2,}(?:S\.?R\.?L\.?|S\.?A\.?))/);
+      if (headingMatch) r.legal_name = headingMatch[1].trim();
+    }
+
+    // Registration number
+    if (!r.registration_number) {
+      const regMatch = text.match(/(J\d{1,2}\/\d+\/\d{4})/i);
+      if (regMatch) r.registration_number = regMatch[1];
+    }
+
+    // CAEN code
+    if (!r.caen_code) {
+      const caenMatch = text.match(/(?:CAEN|cod\s+CAEN)[:\s]*(\d{4})\s*[-–]?\s*([^\n|,]{3,80})?/i);
+      if (caenMatch) {
+        r.caen_code = caenMatch[1];
+        if (caenMatch[2]) r.caen_label = caenMatch[2].trim();
+      }
+    }
+    if (!r.caen_code) {
+      // Standalone CAEN pattern
+      const caenAlt = text.match(/(\d{4})\s*[-–]\s*([A-ZĂÎȘȚÂ][^\n|,]{5,80})/);
+      if (caenAlt) {
+        r.caen_code = caenAlt[1];
+        r.caen_label = caenAlt[2].trim();
+      }
+    }
+
+    // Address
+    if (!r.address) {
+      const addrMatch = text.match(/(?:adres[aă]|sediu(?:l)?(?:\s+social)?)[:\s]*([^\n]{10,200})/i);
+      if (addrMatch) r.address = addrMatch[1].trim().replace(/\s+/g, ' ');
+    }
+    if (!r.address) {
+      // Try "jud. X, loc. Y" pattern
+      const locMatch = text.match(/((?:jud\.?\s+|județ(?:ul)?\s+)[^\n]{5,100})/i);
+      if (locMatch) r.address = locMatch[1].trim();
+    }
+
+    // Status
+    if (!r.stare_inregistrare) {
+      if (/(?:stare|status)[:\s]*activ[aă]?\b/i.test(text)) {
+        r.stare_inregistrare = 'ACTIVA';
+      } else if (/(?:stare|status)[:\s]*(?:inactiv|radiat)/i.test(text)) {
+        r.stare_inregistrare = 'INACTIVA';
+        r.status_inactiv = true;
+      }
+    }
+
+    // TVA
+    if (!r.tva_active) {
+      if (/plat?itor\s+(?:de\s+)?TVA|TVA[:\s]*da|înregistrat.*scopuri.*TVA/i.test(text)) {
+        r.tva_active = true;
+      }
+    }
+
+    // Phone
+    if (!r.phone) {
+      const phoneMatch = text.match(/(?:telefon|tel\.?|phone)[:\s]*([\d\s.+()-]{6,20})/i);
+      if (phoneMatch) r.phone = phoneMatch[1].trim();
     }
   }
 
-  // Extract legal name from markdown
-  if (!result.legal_name) {
-    const nameMatch = markdown.match(/(?:#{1,3}\s*)?([A-ZĂÎȘȚÂ][A-ZĂÎȘȚÂ\s.&-]{2,}(?:S\.?R\.?L\.?|S\.?A\.?|S\.?N\.?C\.?|S\.?C\.?S\.?|P\.?F\.?A\.?|I\.?I\.?|I\.?F\.?))/);
-    if (nameMatch) result.legal_name = nameMatch[1].trim();
-  }
-
-  // Extract CUI confirmation
-  const cuiMatch = markdown.match(/(?:CUI|cod fiscal|C\.U\.I\.)[:\s]*(?:RO\s*)?(\d{5,12})/i);
-  if (cuiMatch) result.cui = cuiMatch[1];
-
-  // Extract registration number
-  const regMatch = markdown.match(/(?:Reg\.?\s*Com\.?|Nr\.?\s*înregistrare|J\d{1,2})[:\s]*(J\d{1,2}\/\d+\/\d{4})/i);
-  if (regMatch) result.registration_number = regMatch[1];
-
-  // Extract CAEN code
-  const caenMatch = markdown.match(/(?:CAEN|cod CAEN)[:\s]*(\d{4})\s*[-–]?\s*([^\n|]{3,80})?/i);
-  if (caenMatch) {
-    result.caen_code = caenMatch[1];
-    if (caenMatch[2]) result.caen_label = caenMatch[2].trim();
-  }
-
-  // Extract address
-  const addrMatch = markdown.match(/(?:adres[aă]|sediu(?:l)?|localitatea)[:\s]*([^\n]{10,200})/i);
-  if (addrMatch) result.address = addrMatch[1].trim();
-
-  // Extract status
-  if (/(?:activ[aă]|ACTIV)/i.test(markdown)) {
-    result.stare_inregistrare = 'ACTIVA';
-  } else if (/(?:inactiv[aă]|INACTIV|radiat[aă]|RADIAT)/i.test(markdown)) {
-    result.stare_inregistrare = 'INACTIVA';
-    result.status_inactiv = true;
-  }
-
-  // TVA status
-  if (/plat?itor\s+(?:de\s+)?TVA|TVA:\s*da|înregistrat.*TVA/i.test(markdown)) {
-    result.tva_active = true;
-  }
-
-  // Phone
-  const phoneMatch = markdown.match(/(?:telefon|tel\.?)[:\s]*([\d\s./-]{6,20})/i);
-  if (phoneMatch) result.phone = phoneMatch[1].trim();
-
-  return result;
+  return r;
 }
