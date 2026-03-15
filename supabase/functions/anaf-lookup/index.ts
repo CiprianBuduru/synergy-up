@@ -221,5 +221,14 @@ function extractCompanyFromResults(cui: string, results: SearchResult[]): Compan
     }
   }
 
+  // Clean up markdown artifacts from parsed values
+  for (const key of ['address', 'caen_label', 'legal_name'] as const) {
+    r[key] = r[key]
+      .replace(/\[.*?\]\(.*?\)/g, '')  // remove markdown links
+      .replace(/[|*#]/g, '')            // remove table/bold/heading chars
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+  }
+
   return r;
 }
