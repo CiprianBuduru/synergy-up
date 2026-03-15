@@ -24,21 +24,38 @@ Deno.serve(async (req) => {
     console.log('Looking up CUI:', cuiClean);
 
     // ANAF v8 API — public, no API key needed
+    const anafBody = JSON.stringify([{ cui: parseInt(cuiClean, 10), data: today }]);
+    console.log('ANAF request body:', anafBody);
+
     const response = await fetch('https://webservicesp.anaf.ro/PlatitorTvaRest/api/v8/ws/tva', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify([{ cui: parseInt(cuiClean, 10), data: today }]),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0',
+      },
+      body: anafBody,
     });
 
+    const responseText = await response.text();
+    console.log('ANAF response status:', response.status, 'body:', responseText.slice(0, 500));
+
     if (!response.ok) {
-      console.error('ANAF API HTTP error:', response.status);
       return new Response(
-        JSON.stringify({ success: false, error: `ANAF API a returnat eroarea ${response.status}` }),
+        JSON.stringify({ success: false, error: `ANAF API a returnat eroarea ${response.status}`, debug: responseText.slice(0, 200) }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    const data = await response.json();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Răspuns invalid de la ANAF', debug: responseText.slice(0, 200) }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
     const found = data?.found || data?.cod === 200 ? data?.found : null;
 
     // ANAF returns { cod: 200, message: "SUCCESS", found: [...] }
