@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Building2, Search, Globe, MapPin, Factory, Linkedin, ExternalLink, ArrowRight, Loader2, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { Building2, Search, Globe, MapPin, Factory, Linkedin, ExternalLink, ArrowRight, Loader2, AlertTriangle, CheckCircle2, Info, FileText, Hash, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -12,8 +12,9 @@ import AppLayout from '@/components/AppLayout';
 import { useData } from '@/contexts/DataContext';
 import { resolveCompany, type ResolutionResult } from '@/services/companyResolutionService';
 import { runCompanyResearch, type CompanyResearchResult } from '@/services/companyResearchService';
+import { lookupCui, type AnafCompanyData } from '@/services/anafLookupService';
 
-type FlowStatus = 'idle' | 'resolving' | 'researching' | 'completed' | 'error';
+type FlowStatus = 'idle' | 'anaf_lookup' | 'resolving' | 'researching' | 'completed' | 'error';
 
 export default function CompanyProspectPage() {
   const navigate = useNavigate();
@@ -24,6 +25,7 @@ export default function CompanyProspectPage() {
   const [status, setStatus] = useState<FlowStatus>('idle');
   const [error, setError] = useState<string | null>(null);
 
+  const [anafData, setAnafData] = useState<AnafCompanyData | null>(null);
   const [resolution, setResolution] = useState<ResolutionResult | null>(null);
   const [research, setResearch] = useState<CompanyResearchResult | null>(null);
 
@@ -39,24 +41,49 @@ export default function CompanyProspectPage() {
     setError(null);
     setResolution(null);
     setResearch(null);
+    setAnafData(null);
 
-    // Step 1: Resolve against local DB if we have a name
-    if (name && companies.length > 0) {
+    let resolvedName = name;
+
+    // Step 0: ANAF lookup if CUI provided
+    if (cuiVal) {
+      setStatus('anaf_lookup');
+      const { data: anaf, error: anafError } = await lookupCui(cuiVal);
+      if (anaf) {
+        setAnafData(anaf);
+        // Use ANAF legal name if user didn't provide a name
+        if (!resolvedName && anaf.legal_name) {
+          resolvedName = anaf.legal_name;
+          setCompanyName(anaf.legal_name);
+        }
+      } else if (anafError) {
+        console.warn('[Prospect] ANAF lookup failed:', anafError);
+        // Non-blocking — continue with web research
+      }
+    }
+
+    // Step 1: Resolve against local DB
+    if (resolvedName && companies.length > 0) {
       setStatus('resolving');
-      const res = resolveCompany(name, companies);
+      const res = resolveCompany(resolvedName, companies);
       setResolution(res);
     }
 
     // Step 2: Run web research
     setStatus('researching');
-    const searchName = name || `CUI ${cuiVal}`;
+    const searchName = resolvedName || `CUI ${cuiVal}`;
     const { result, error: researchError } = await runCompanyResearch(
       cuiVal ? `${searchName} CUI ${cuiVal}` : searchName,
     );
 
     if (researchError && !result) {
       setError(researchError);
-      setStatus('error');
+      // If we have ANAF data, still mark as completed
+      if (anafData) {
+        setStatus('completed');
+      } else {
+        setStatus('error');
+      }
       return;
     }
 
@@ -66,19 +93,30 @@ export default function CompanyProspectPage() {
 
   // ─── Continue to prospect analysis ───────────────────────
   const handleContinue = () => {
-    // Navigate to new presentation with pre-filled data
     const params = new URLSearchParams();
-    if (research?.company_name) params.set('company', research.company_name);
+    const finalName = anafData?.legal_name || research?.company_name || companyName.trim();
+    if (finalName) params.set('company', finalName);
     if (research?.detected_website) params.set('website', research.detected_website);
-    if (research?.detected_industry) params.set('industry', research.detected_industry);
-    if (research?.detected_location) params.set('location', research.detected_location);
+    if (anafData?.caen_code) params.set('caen', anafData.caen_code);
+    if (research?.detected_industry || anafData?.caen_label) {
+      params.set('industry', research?.detected_industry || anafData?.caen_label || '');
+    }
+    if (research?.detected_location || anafData?.address) {
+      params.set('location', research?.detected_location || anafData?.address || '');
+    }
     if (cui.trim()) params.set('cui', cui.trim());
     navigate(`/new?${params.toString()}`);
   };
 
-  const isLoading = status === 'resolving' || status === 'researching';
-  const hasResults = status === 'completed' && research;
-  const isPartial = hasResults && (!research.detected_website && !research.detected_industry);
+  const isLoading = status === 'anaf_lookup' || status === 'resolving' || status === 'researching';
+  const hasResults = status === 'completed' && (research || anafData);
+  const isPartial = hasResults && !research?.detected_website && !research?.detected_industry && !anafData;
+
+  const statusLabel = {
+    anaf_lookup: 'Se verifică la ANAF…',
+    resolving: 'Se verifică baza de date…',
+    researching: 'Se cercetează compania…',
+  }[status] || '';
 
   return (
     <AppLayout>
@@ -130,7 +168,7 @@ export default function CompanyProspectPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {status === 'resolving' ? 'Se verifică baza de date…' : 'Se cercetează compania…'}
+                  {statusLabel}
                 </>
               ) : (
                 <>
@@ -180,16 +218,55 @@ export default function CompanyProspectPage() {
           )}
         </AnimatePresence>
 
-        {/* Research Results */}
+        {/* ANAF Official Data */}
         <AnimatePresence>
-          {hasResults && (
+          {anafData && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <Card className="border-primary/20">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-primary" />
+                      Date oficiale ANAF
+                    </CardTitle>
+                    <Badge className="text-xs gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Verified ANAF
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2.5">
+                  <FieldRow icon={Building2} label="Denumire oficială" value={anafData.legal_name} />
+                  <FieldRow icon={Hash} label="CUI" value={anafData.cui} />
+                  <FieldRow icon={FileText} label="Nr. Reg. Comerț" value={anafData.registration_number} />
+                  <FieldRow icon={Factory} label="CAEN" value={anafData.caen_code ? `${anafData.caen_code}${anafData.caen_label ? ` — ${anafData.caen_label}` : ''}` : ''} />
+                  <FieldRow icon={MapPin} label="Sediu" value={anafData.address} />
+                  <FieldRow icon={ShieldCheck} label="Stare" value={anafData.stare_inregistrare} />
+                  <div className="flex items-center gap-3 flex-wrap pt-1">
+                    <Badge variant={anafData.tva_active ? 'default' : 'outline'} className="text-xs">
+                      TVA: {anafData.tva_active ? 'Activ' : 'Inactiv'}
+                    </Badge>
+                    {anafData.status_inactiv && (
+                      <Badge variant="destructive" className="text-xs">
+                        Contribuabil inactiv
+                      </Badge>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Web Research Results */}
+        <AnimatePresence>
+          {hasResults && research && (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Globe className="h-4 w-4 text-primary" />
-                      Company Research
+                      Web Research
                     </CardTitle>
                     <Badge variant={isPartial ? 'outline' : 'default'} className="text-xs">
                       {isPartial ? (
@@ -202,7 +279,6 @@ export default function CompanyProspectPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <FieldRow icon={Building2} label="Companie" value={research.company_name} />
-                  {cui.trim() && <FieldRow icon={Building2} label="CUI" value={cui.trim()} />}
                   <FieldRow icon={Globe} label="Website" value={research.detected_website} isLink />
                   <FieldRow icon={Factory} label="Industrie" value={research.detected_industry} />
                   <FieldRow icon={MapPin} label="Locație" value={research.detected_location} />
@@ -242,18 +318,19 @@ export default function CompanyProspectPage() {
                       </div>
                     </>
                   )}
-
-                  <Separator />
-
-                  <Button onClick={handleContinue} className="w-full gap-2">
-                    <ArrowRight className="h-4 w-4" />
-                    Continue to Prospect Analysis
-                  </Button>
                 </CardContent>
               </Card>
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Continue Button */}
+        {hasResults && (
+          <Button onClick={handleContinue} className="w-full gap-2" size="lg">
+            <ArrowRight className="h-4 w-4" />
+            Continue to Prospect Analysis
+          </Button>
+        )}
 
         {/* Allow continue even on error */}
         {status === 'error' && (
@@ -299,7 +376,7 @@ function FieldRow({ icon: Icon, label, value, isLink }: {
           {value}
         </a>
       ) : (
-        <span className="ml-auto text-sm text-foreground truncate max-w-[280px]">{label === 'CUI' ? value : value}</span>
+        <span className="ml-auto text-sm text-foreground truncate max-w-[280px]">{value}</span>
       )}
     </div>
   );
