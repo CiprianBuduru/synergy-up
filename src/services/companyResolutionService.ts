@@ -254,4 +254,10 @@ export const RESOLUTION_STATUS_CONFIG: Record<ResolutionStatus, {
     color: 'text-orange-700 bg-orange-50 border-orange-200',
     icon: 'help-circle',
   },
+  verified_web: {
+    label: 'Verified via web research',
+    description: 'Compania a fost verificată prin cercetare web — domeniu similar cu emailul detectat.',
+    color: 'text-teal-700 bg-teal-50 border-teal-200',
+    icon: 'globe',
+  },
 };
