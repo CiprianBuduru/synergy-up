@@ -25,98 +25,128 @@ Deno.serve(async (req) => {
 
     // ANAF v8 API — public, no API key needed
     const anafBody = JSON.stringify([{ cui: parseInt(cuiClean, 10), data: today }]);
-    console.log('ANAF request body:', anafBody);
 
-    // Try multiple ANAF endpoints (they occasionally change or block certain IPs)
-    const endpoints = [
-      'https://webservicesp.anaf.ro/PlatitorTvaRest/api/v8/ws/tva',
-      'https://webservicesp.anaf.ro/AsynchWebService/api/v8/ws/tva',
-    ];
+    let data = null;
+    let anafSuccess = false;
 
-    let response: Response | null = null;
-    let responseText = '';
+    // Try ANAF direct API
+    try {
+      const response = await fetch('https://webservicesp.anaf.ro/PlatitorTvaRest/api/v8/ws/tva', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: anafBody,
+      });
 
-    for (const endpoint of endpoints) {
-      console.log('Trying ANAF endpoint:', endpoint);
+      const responseText = await response.text();
+      console.log('ANAF direct response:', response.status, responseText.slice(0, 300));
+
+      if (response.ok) {
+        data = JSON.parse(responseText);
+        anafSuccess = true;
+      }
+    } catch (e) {
+      console.error('ANAF direct failed:', e);
+    }
+
+    // Fallback: try openapi.ro (free public mirror)
+    if (!anafSuccess) {
+      console.log('Trying openapi.ro fallback...');
       try {
-        response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: anafBody,
+        const fallbackUrl = `https://api.openapi.ro/api/companies/${cuiClean}`;
+        const fallbackResp = await fetch(fallbackUrl, {
+          headers: { 'Accept': 'application/json' },
         });
-        responseText = await response.text();
-        console.log('ANAF response from', endpoint, '- status:', response.status, 'body:', responseText.slice(0, 300));
-        if (response.ok) break;
+
+        if (fallbackResp.ok) {
+          const fbData = await fallbackResp.json();
+          console.log('openapi.ro response:', JSON.stringify(fbData).slice(0, 300));
+
+          // Map openapi.ro format to our structure
+          const result = {
+            cui: cuiClean,
+            legal_name: fbData.denumire || fbData.name || '',
+            address: fbData.adresa || fbData.address || '',
+            registration_number: fbData.numar_reg_com || fbData.registration_number || '',
+            phone: fbData.telefon || '',
+            fax: fbData.fax || '',
+            postal_code: fbData.cod_postal || '',
+            stare_inregistrare: fbData.stare || fbData.status || '',
+            registration_date: '',
+            caen_code: fbData.cod_CAEN ? String(fbData.cod_CAEN) : (fbData.caen ? String(fbData.caen) : ''),
+            caen_label: fbData.activitate_principala || fbData.caen_description || '',
+            tva_active: fbData.tva || fbData.platpictor_tva || false,
+            tva_registration_date: '',
+            tva_end_date: '',
+            split_tva: false,
+            status_inactiv: fbData.stare === 'INACTIVA' || false,
+            status_split_tva: '',
+          };
+
+          console.log('Fallback lookup successful:', result.legal_name);
+          return new Response(
+            JSON.stringify({ success: true, data: result, source: 'openapi.ro' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+          );
+        } else {
+          const fbText = await fallbackResp.text();
+          console.log('openapi.ro failed:', fallbackResp.status, fbText.slice(0, 200));
+        }
       } catch (e) {
-        console.error('Failed endpoint', endpoint, e);
+        console.error('openapi.ro fallback failed:', e);
       }
     }
 
-    if (!response || !response.ok) {
+    // Process ANAF direct response
+    if (anafSuccess && data) {
+      const found = data?.found || (data?.cod === 200 ? data?.found : null);
+      const items = found || [];
+
+      if (!items || items.length === 0) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'CUI negăsit în baza de date ANAF.' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+
+      const item = items[0];
+      const generalData = item.date_generale || item;
+      const tvaData = item.inregistrare_scop_Tva || {};
+      const splitTvaData = item.inregistrare_RTVAI || {};
+
+      const result = {
+        cui: cuiClean,
+        legal_name: generalData.denumire || '',
+        address: generalData.adresa || '',
+        registration_number: generalData.nrRegCom || '',
+        phone: generalData.telefon || '',
+        fax: generalData.fax || '',
+        postal_code: generalData.codPostal || '',
+        stare_inregistrare: generalData.stare_inregistrare || '',
+        registration_date: generalData.data_inregistrare || '',
+        caen_code: generalData.cod_CAEN ? String(generalData.cod_CAEN) : '',
+        caen_label: generalData.aut || '',
+        tva_active: generalData.scpTVA || false,
+        tva_registration_date: tvaData.data_inceput_ScpTVA || '',
+        tva_end_date: tvaData.data_sfarsit_ScpTVA || '',
+        split_tva: generalData.statusRO_e_Factura || false,
+        status_inactiv: generalData.statusInactivi || false,
+        status_split_tva: splitTvaData.dataInceputSplitTVA || '',
+      };
+
+      console.log('ANAF lookup successful:', result.legal_name);
       return new Response(
-        JSON.stringify({ success: false, error: `ANAF API a returnat eroarea ${response.status}`, debug: responseText.slice(0, 200) }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        JSON.stringify({ success: true, data: result, source: 'anaf' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       );
     }
 
-    let data;
-    try {
-      data = JSON.parse(responseText);
-    } catch {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Răspuns invalid de la ANAF', debug: responseText.slice(0, 200) }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-    const found = data?.found || data?.cod === 200 ? data?.found : null;
-
-    // ANAF returns { cod: 200, message: "SUCCESS", found: [...] }
-    const items = found || [];
-    if (!items || items.length === 0) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'CUI negăsit în baza de date ANAF.' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-      );
-    }
-
-    const item = items[0];
-    const generalData = item.date_generale || item;
-    const tvaData = item.inregistrare_scop_Tva || {};
-    const splitTvaData = item.inregistrare_RTVAI || {};
-
-    // Build structured response
-    const result = {
-      cui: cuiClean,
-      legal_name: generalData.denumire || '',
-      address: generalData.adresa || '',
-      registration_number: generalData.nrRegCom || '',
-      phone: generalData.telefon || '',
-      fax: generalData.fax || '',
-      postal_code: generalData.codPostal || '',
-      stare_inregistrare: generalData.stare_inregistrare || '',
-      registration_date: generalData.data_inregistrare || '',
-      // CAEN
-      caen_code: generalData.cod_CAEN ? String(generalData.cod_CAEN) : '',
-      caen_label: generalData.aut || '',
-      // TVA status
-      tva_active: generalData.scpTVA || false,
-      tva_registration_date: tvaData.data_inceput_ScpTVA || '',
-      tva_end_date: tvaData.data_sfarsit_ScpTVA || '',
-      // Split TVA
-      split_tva: generalData.statusRO_e_Factura || false,
-      // Status
-      status_inactiv: generalData.statusInactivi || false,
-      status_split_tva: splitTvaData.dataInceputSplitTVA || '',
-    };
-
-    console.log('ANAF lookup successful:', result.legal_name);
-
+    // Both failed
     return new Response(
-      JSON.stringify({ success: true, data: result }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      JSON.stringify({ success: false, error: 'Nu s-au putut obține date de la ANAF. Serviciul poate fi temporar indisponibil.' }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
     );
   } catch (error) {
     console.error('ANAF lookup error:', error);
