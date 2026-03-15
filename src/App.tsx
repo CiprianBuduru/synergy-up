@@ -41,6 +41,7 @@ function AppRoutes() {
       <Route path="/products" element={<ProtectedRoute><ProductsPage /></ProtectedRoute>} />
       <Route path="/knowledge" element={<ProtectedRoute><KnowledgePage /></ProtectedRoute>} />
       <Route path="/email-flow" element={<ProtectedRoute><EmailBriefFlowPage /></ProtectedRoute>} />
+      <Route path="/prospect" element={<ProtectedRoute><CompanyProspectPage /></ProtectedRoute>} />
       <Route path="/preview/:id" element={<ProtectedRoute><PreviewPage /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
