@@ -39,11 +39,21 @@ function normalize(value: string): string {
     .replace(/[\u0300-\u036f]/g, '');  // strip diacritics
 }
 
+/** Legal suffixes to strip for normalized comparison */
+const LEGAL_SUFFIXES = ['s\\.?r\\.?l\\.?', 's\\.?a\\.?', 'srl', 'sa', 'snc', 'scs', 'pfa', 's r l', 's a'];
+// Short forms (II, IF) only as standalone words at end to avoid false positives
+const SHORT_LEGAL_SUFFIXES = ['ii', 'if'];
+
 /** Remove common legal suffixes for comparison */
 function stripLegalSuffix(name: string): string {
-  return normalize(name)
-    .replace(/\b(s\.?r\.?l\.?|s\.?a\.?|s\.?r\.?l|s\.?a|srl|sa|s r l|s a)\b/gi, '')
-    .trim();
+  let result = normalize(name);
+  // Strip longer suffixes first
+  const longPattern = new RegExp(`\\b(${LEGAL_SUFFIXES.join('|')})\\b`, 'gi');
+  result = result.replace(longPattern, '');
+  // Strip short suffixes only at end of string
+  const shortPattern = new RegExp(`\\b(${SHORT_LEGAL_SUFFIXES.join('|')})\\s*$`, 'gi');
+  result = result.replace(shortPattern, '');
+  return result.trim();
 }
 
 function levenshteinSimilarity(a: string, b: string): number {
