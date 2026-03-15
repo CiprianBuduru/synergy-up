@@ -15,6 +15,7 @@ import KitGeneratorPage from "./pages/KitGeneratorPage";
 import ProductsPage from "./pages/ProductsPage";
 import KnowledgePage from "./pages/KnowledgePage";
 import EmailBriefFlowPage from "./pages/EmailBriefFlowPage";
+import CompanyProspectPage from "./pages/CompanyProspectPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
