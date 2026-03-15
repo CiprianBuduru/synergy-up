@@ -59,12 +59,14 @@ export async function runCompanyResearch(
     let summary = '';
     let linkedin = '';
 
+    // Collect all candidate URLs first, then pick the best website
+    const candidateUrls: string[] = [];
+
     for (const item of results) {
       const url = item.url || item.link || '';
       const title = item.title || '';
       const description = item.description || '';
       const markdown = item.markdown || '';
-      const fullText = `${title} ${description} ${markdown}`.toLowerCase();
 
       if (url) sources.push(url);
 
@@ -74,27 +76,36 @@ export async function runCompanyResearch(
         continue;
       }
 
-      // Detect official website (skip social media and directories)
-      if (!detectedWebsite && url && !isSocialOrDirectory(url)) {
-        detectedWebsite = url;
+      // Collect non-social URLs as website candidates
+      if (url && !isSocialOrDirectory(url)) {
+        candidateUrls.push(url);
       }
 
-      // Try to extract industry from content
-      if (!detectedIndustry) {
+      // Only use root-level pages for industry detection (avoid subpage noise)
+      const isRootLevel = isRootOrNearRoot(url);
+
+      if (!detectedIndustry && isRootLevel) {
+        const fullText = `${title} ${description} ${markdown}`.toLowerCase();
         detectedIndustry = extractIndustry(fullText);
       }
 
-      // Try to extract location
+      // Try to extract location from any result
       if (!detectedLocation) {
+        const fullText = `${title} ${description} ${markdown}`.toLowerCase();
         detectedLocation = extractLocation(fullText);
       }
 
-      // Build summary from first meaningful result
+      // Build summary from first meaningful root-level result, fallback to any
       if (!summary && (description || markdown)) {
-        summary = (description || markdown.slice(0, 300)).trim();
-        if (summary.length > 300) summary = summary.slice(0, 297) + '...';
+        const text = (description || markdown.slice(0, 300)).trim();
+        if (isRootLevel || !summary) {
+          summary = text.length > 300 ? text.slice(0, 297) + '...' : text;
+        }
       }
     }
+
+    // Pick best website: prefer root domain over deep subpages
+    detectedWebsite = pickBestWebsite(candidateUrls);
 
     const result: CompanyResearchResult = {
       company_name: name,
@@ -135,6 +146,44 @@ function buildMinimalResult(name: string): CompanyResearchResult {
 function isSocialOrDirectory(url: string): boolean {
   const skip = ['facebook.com', 'twitter.com', 'instagram.com', 'tiktok.com', 'youtube.com', 'linkedin.com', 'wikipedia.org', 'listafirme.ro', 'risco.ro', 'termene.ro', 'infocui.ro'];
   return skip.some(d => url.includes(d));
+}
+
+/** Extract root domain URL from any URL (e.g. https://lidas.ro/en/page → https://lidas.ro) */
+function toRootDomain(url: string): string {
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return `${parsed.protocol}//${parsed.hostname}`;
+  } catch {
+    return url;
+  }
+}
+
+/** Check if a URL is the root page or near-root (max 1 path segment) */
+function isRootOrNearRoot(url: string): boolean {
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    const segments = parsed.pathname.split('/').filter(Boolean);
+    return segments.length <= 1;
+  } catch {
+    return false;
+  }
+}
+
+/** Pick the best website from candidates: prefer root domains over deep subpages */
+function pickBestWebsite(urls: string[]): string {
+  if (urls.length === 0) return '';
+
+  // Group by root domain and prefer root/near-root URLs
+  const domainMap = new Map<string, string[]>();
+  for (const url of urls) {
+    const root = toRootDomain(url);
+    if (!domainMap.has(root)) domainMap.set(root, []);
+    domainMap.get(root)!.push(url);
+  }
+
+  // Pick the first domain encountered (highest search relevance), return its root
+  const firstRoot = toRootDomain(urls[0]);
+  return firstRoot;
 }
 
 function extractIndustry(text: string): string {
