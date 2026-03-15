@@ -10,7 +10,8 @@ export type ResolutionStatus =
   | 'confirmed'           // Exact match found in DB
   | 'likely_match'        // Fuzzy match — high confidence but not exact
   | 'unverified'          // No match found — company name from parser only
-  | 'manual_review';      // Ambiguous — multiple candidates or low confidence
+  | 'manual_review'       // Ambiguous — multiple candidates or low confidence
+  | 'verified_web';       // Verified via AI web research (domain match)
 
 export interface ResolutionCandidate {
   company: Company;
